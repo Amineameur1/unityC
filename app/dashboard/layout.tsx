@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   BarChart3,
@@ -33,13 +33,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-
-// Mock user data - in a real app, this would come from authentication
-const currentUser = {
-  name: "Mohammed Abdullah",
-  role: "Company Manager", // Company Manager | Department Manager | Employee
-  department: "IT",
-}
+import { useToast } from "@/components/ui/use-toast"
+import Cookies from "js-cookie"
 
 export default function DashboardLayout({
   children,
@@ -48,66 +43,117 @@ export default function DashboardLayout({
 }>) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+  const { toast } = useToast()
 
-  // Define navigation items based on user role
+  // حالة المستخدم
+  const [currentUser, setCurrentUser] = useState<{
+    name: string
+    role: string
+    department?: string
+  }>({
+    name: "",
+    role: "",
+    department: "",
+  })
+
+  // جلب معلومات المستخدم من localStorage عند تحميل الصفحة
+  useEffect(() => {
+    // التحقق من وجود المستخدم في localStorage
+    const userStr = localStorage.getItem("user")
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        setCurrentUser(user)
+      } catch (error) {
+        console.error("Error parsing user data:", error)
+      }
+    }
+  }, [])
+
+  // تسجيل الخروج
+  const handleLogout = () => {
+    // حذف token من الكوكيز
+    Cookies.remove("auth-token")
+
+    // حذف معلومات المستخدم من localStorage
+    localStorage.removeItem("user")
+
+    // إظهار رسالة نجاح
+    toast({
+      title: "تم تسجيل الخروج",
+      description: "تم تسجيل خروجك بنجاح من النظام",
+    })
+
+    // إعادة التوجيه إلى صفحة تسجيل الدخول
+    router.push("/login")
+  }
+
+  // تحديد عناصر القائمة بناءً على دور المستخدم
   const navItems = [
     {
-      title: "Dashboard",
+      title: "لوحة التحكم",
       href: "/dashboard",
       icon: <Home className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager", "Employee"],
     },
     {
-      title: "Companies",
+      title: "الشركات",
       href: "/dashboard/companies",
       icon: <Building2 className="h-5 w-5" />,
       roles: ["Company Manager"],
     },
     {
-      title: "Employees",
+      title: "الأقسام",
+      href: "/dashboard/departments",
+      icon: <Building2 className="h-5 w-5" />,
+      roles: ["Company Manager", "Department Manager"],
+    },
+    {
+      title: "الموظفين",
       href: "/dashboard/employees",
       icon: <Users className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager"],
     },
     {
-      title: "Tasks",
+      title: "المهام",
       href: "/dashboard/tasks",
       icon: <ClipboardList className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager", "Employee"],
     },
     {
-      title: "Resources",
+      title: "الموارد",
       href: "/dashboard/resources",
       icon: <Package className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager"],
     },
     {
-      title: "Files",
+      title: "الملفات",
       href: "/dashboard/files",
       icon: <FileBox className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager", "Employee"],
     },
     {
-      title: "Announcements",
+      title: "الإعلانات",
       href: "/dashboard/announcements",
       icon: <MessageSquare className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager", "Employee"],
     },
     {
-      title: "Performance",
+      title: "الأداء",
       href: "/dashboard/performance",
       icon: <BarChart3 className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager"],
     },
     {
-      title: "Settings",
+      title: "الإعدادات",
       href: "/dashboard/settings",
       icon: <Settings className="h-5 w-5" />,
       roles: ["Company Manager", "Department Manager", "Employee"],
     },
   ]
 
-  // Filter nav items based on user role
+  // تصفية عناصر القائمة بناءً على دور المستخدم
   const filteredNavItems = navItems.filter((item) => item.roles.includes(currentUser.role))
 
   return (
@@ -137,11 +183,11 @@ export default function DashboardLayout({
                     <path d="M15 18h-5" />
                     <path d="M10 6h8v4h-8V6Z" />
                   </svg>
-                  Enterprise Management System
+                  نظام إدارة المؤسسات
                 </Link>
                 <Button variant="ghost" size="icon" className="mr-auto" onClick={() => setOpen(false)}>
                   <X className="h-5 w-5" />
-                  <span className="sr-only">Close navigation menu</span>
+                  <span className="sr-only">إغلاق قائمة التنقل</span>
                 </Button>
               </div>
               <nav className="grid gap-2 p-4">
@@ -161,12 +207,17 @@ export default function DashboardLayout({
                 ))}
               </nav>
               <div className="mt-auto p-4">
-                <Link href="/">
-                  <Button variant="outline" className="w-full justify-start gap-2" onClick={() => setOpen(false)}>
-                    <LogOut className="h-4 w-4" />
-                    Sign Out
-                  </Button>
-                </Link>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    setOpen(false)
+                    handleLogout()
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  تسجيل الخروج
+                </Button>
               </div>
             </div>
           </SheetContent>
@@ -187,15 +238,15 @@ export default function DashboardLayout({
             <path d="M15 18h-5" />
             <path d="M10 6h8v4h-8V6Z" />
           </svg>
-          Enterprise Management System
+          نظام إدارة المؤسسات
         </Link>
         <div className="relative ml-auto flex-1 md:grow-0 md:w-80">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input type="search" placeholder="Search..." className="w-full rounded-lg bg-background pl-8 md:w-80" />
+          <Input type="search" placeholder="بحث..." className="w-full rounded-lg bg-background pl-8 md:w-80" />
         </div>
         <Button variant="outline" size="icon" className="ml-auto md:ml-0">
           <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
+          <span className="sr-only">الإشعارات</span>
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -206,16 +257,20 @@ export default function DashboardLayout({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuLabel>حسابي</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
-              <Link href="/" className="flex w-full items-center">
-                Sign Out
+              <Link href="/dashboard/settings/profile" className="flex w-full items-center">
+                الملف الشخصي
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Link href="/dashboard/settings" className="flex w-full items-center">
+                الإعدادات
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>تسجيل الخروج</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
