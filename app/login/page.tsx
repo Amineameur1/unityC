@@ -9,10 +9,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
-import Cookies from "js-cookie"
+import { Layers, Lock, Mail } from "lucide-react"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -20,65 +20,72 @@ export default function LoginPage() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
-  // الحصول على مسار العودة من معلمات الاستعلام إن وجد
+  // Get return path from query parameters if exists
   const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
 
-  // التحقق مما إذا كان المستخدم مسجل دخوله بالفعل
+  // Check if user is already logged in
   useEffect(() => {
-    const authToken = Cookies.get("auth-token")
-    if (authToken) {
-      router.push(callbackUrl)
+    const checkAuth = () => {
+      const user = localStorage.getItem("user")
+      if (user) {
+        // استخدام window.location.href بدلاً من router.push لتجنب مشاكل التوجيه
+        window.location.href = callbackUrl
+      }
     }
-  }, [callbackUrl, router])
 
+    checkAuth()
+  }, [callbackUrl])
+
+  // Update the handleSubmit function to properly handle login
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // التحقق من صحة البيانات
-    if (!email || !password) {
-      toast({
-        title: "خطأ",
-        description: "يرجى إدخال البريد الإلكتروني وكلمة المرور",
-        variant: "destructive",
-      })
-      setIsLoading(false)
-      return
-    }
-
     try {
-      // في تطبيق حقيقي، ستقوم بإرسال طلب إلى الخادم للتحقق من بيانات المستخدم
-      // هنا نقوم بمحاكاة عملية تسجيل الدخول
-
-      // تأخير لمحاكاة طلب الشبكة
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // تعيين token في الكوكيز
-      // في تطبيق حقيقي، سيتم إرجاع هذا الـ token من الخادم
-      const expirationDays = rememberMe ? 30 : 1
-      Cookies.set("auth-token", "sample-auth-token-123456", { expires: expirationDays })
-
-      // تخزين معلومات المستخدم في localStorage
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          name: "محمد عبدالله",
-          email: email,
-          role: "Company Manager",
-        }),
-      )
-
-      toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: "مرحباً بك في نظام إدارة المؤسسات",
+      // Use the internal API endpoint
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
       })
 
-      // إعادة التوجيه إلى لوحة التحكم أو مسار العودة
-      router.push(callbackUrl)
-    } catch (error) {
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Login failed")
+      }
+
+      const data = await response.json()
+
+      // Validate the user data
+      if (!data.user || !data.user.role) {
+        throw new Error("Invalid user data received from server")
+      }
+
+      // Store user info in localStorage
+      localStorage.setItem("user", JSON.stringify(data.user))
+      if (data.token) {
+        localStorage.setItem("token", data.token)
+      }
+
       toast({
-        title: "خطأ في تسجيل الدخول",
-        description: "حدث خطأ أثناء محاولة تسجيل الدخول. يرجى المحاولة مرة أخرى.",
+        title: "Login successful",
+        description: "Welcome to the Enterprise Management System",
+      })
+
+      // Save return path if it exists
+      if (callbackUrl && callbackUrl !== "/dashboard") {
+        localStorage.setItem("authRedirectPath", callbackUrl)
+      }
+
+      // Redirect to dashboard
+      window.location.href = "/dashboard"
+    } catch (error: any) {
+      console.error("Login error:", error)
+      toast({
+        title: "Login failed",
+        description: error.message || "An error occurred while trying to log in. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -87,40 +94,56 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-md space-y-8 rounded-lg border bg-background p-6 shadow-lg">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold">مرحباً بعودتك</h1>
-          <p className="text-muted-foreground">أدخل بيانات الاعتماد للوصول إلى حسابك</p>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <div className="w-full max-w-md space-y-8 rounded-xl border bg-background p-8 shadow-lg">
+        <div className="flex flex-col items-center space-y-2 text-center">
+          <div className="rounded-full bg-primary/10 p-2">
+            <Layers className="h-10 w-10 text-primary" />
+          </div>
+          <h1 className="text-3xl font-bold">Welcome Back</h1>
+          <p className="text-muted-foreground">Enter your credentials to access your account</p>
         </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Label htmlFor="username" className="text-sm font-medium">
+                Email or Username
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter your email or username"
+                  className="pl-10"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">كلمة المرور</Label>
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </Label>
                 <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                  نسيت كلمة المرور؟
+                  Forgot password?
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="pl-10"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -128,19 +151,29 @@ export default function LoginPage() {
                 checked={rememberMe}
                 onCheckedChange={(checked) => setRememberMe(checked as boolean)}
               />
-              <Label htmlFor="remember" className="text-sm font-normal mr-2">
-                تذكرني لمدة 30 يوم
+              <Label htmlFor="remember" className="text-sm font-normal ml-2">
+                Remember me
               </Label>
             </div>
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
+            {isLoading ? "Logging in..." : "Log in"}
           </Button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t"></span>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">OR</span>
+          </div>
+        </div>
+
         <div className="mt-4 text-center text-sm">
-          ليس لديك حساب؟{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            إنشاء حساب
+          Don't have an account?{" "}
+          <Link href="/register" className="text-primary font-medium hover:underline">
+            Sign up
           </Link>
         </div>
       </div>

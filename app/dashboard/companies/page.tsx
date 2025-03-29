@@ -26,7 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Building2, MoreHorizontal, Plus, Search } from "lucide-react"
+import { Building2, MoreHorizontal, Plus, Search, Users, Grid2X2, LayoutList } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/use-toast"
 
 // Sample company data
 const initialCompanies = [
@@ -114,6 +117,7 @@ export default function CompaniesPage() {
     description: "",
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [viewMode, setViewMode] = useState("table")
 
   const filteredCompanies = companies.filter((company) =>
     company.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -125,16 +129,26 @@ export default function CompaniesPage() {
   }
 
   const handleAddCompany = () => {
+    if (!newCompany.name) {
+      toast({
+        title: "Error",
+        description: "Company name is required",
+        variant: "destructive",
+      })
+      return
+    }
+
     const newId = companies.length > 0 ? Math.max(...companies.map((c) => c.id)) + 1 : 1
     const companyToAdd = {
       id: newId,
       name: newCompany.name,
-      industry: newCompany.industry,
-      location: newCompany.location,
+      industry: newCompany.industry || "Technology",
+      location: newCompany.location || "Not specified",
       employees: 0,
       departments: 0,
       status: "Active",
     }
+
     setCompanies([...companies, companyToAdd])
     setNewCompany({
       name: "",
@@ -142,11 +156,17 @@ export default function CompaniesPage() {
       location: "",
       description: "",
     })
+
     setIsDialogOpen(false)
+
+    toast({
+      title: "Company added",
+      description: `${companyToAdd.name} has been added successfully`,
+    })
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
+    <div className="flex flex-col gap-6 p-6 md:gap-8 md:p-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Companies</h1>
@@ -216,159 +236,229 @@ export default function CompaniesPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <div className="flex items-center gap-4">
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Search companies..."
-            className="w-full pl-8"
+            className="w-full rounded-full pl-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline">Filter</Button>
+        <div className="flex items-center gap-2">
+          <Tabs value={viewMode} onValueChange={setViewMode} className="w-auto">
+            <TabsList className="grid w-auto grid-cols-2">
+              <TabsTrigger value="table" className="px-3">
+                <LayoutList className="h-4 w-4" />
+              </TabsTrigger>
+              <TabsTrigger value="grid" className="px-3">
+                <Grid2X2 className="h-4 w-4" />
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button variant="outline" className="rounded-full">
+            Filter
+          </Button>
+        </div>
       </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden border-none shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/20">
             <CardTitle className="text-sm font-medium">Total Companies</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <div className="rounded-full bg-blue-500/20 p-1">
+              <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="text-2xl font-bold">{companies.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {companies.filter((c) => c.status === "Active").length} active
-            </p>
+            <div className="flex items-center text-xs text-muted-foreground mt-1">
+              <span>{companies.filter((c) => c.status === "Active").length} active</span>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden border-none shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/20">
             <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+            <div className="rounded-full bg-purple-500/20 p-1">
+              <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="text-2xl font-bold">
               {companies.reduce((sum, company) => sum + company.employees, 0).toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">Across all companies</p>
+            <div className="flex items-center text-xs text-muted-foreground mt-1">
+              <span>Across all companies</span>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden border-none shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/20">
             <CardTitle className="text-sm font-medium">Total Departments</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <rect width="8" height="8" x="3" y="3" rx="2" />
-              <rect width="8" height="8" x="13" y="3" rx="2" />
-              <rect width="8" height="8" x="3" y="13" rx="2" />
-              <rect width="8" height="8" x="13" y="13" rx="2" />
-            </svg>
+            <div className="rounded-full bg-amber-500/20 p-1">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4 text-amber-600 dark:text-amber-400"
+              >
+                <rect width="8" height="8" x="3" y="3" rx="2" />
+                <rect width="8" height="8" x="13" y="3" rx="2" />
+                <rect width="8" height="8" x="3" y="13" rx="2" />
+                <rect width="8" height="8" x="13" y="13" rx="2" />
+              </svg>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="text-2xl font-bold">{companies.reduce((sum, company) => sum + company.departments, 0)}</div>
-            <p className="text-xs text-muted-foreground">Across all companies</p>
+            <div className="flex items-center text-xs text-muted-foreground mt-1">
+              <span>Across all companies</span>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden border-none shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/20">
             <CardTitle className="text-sm font-medium">Average Size</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+            <div className="rounded-full bg-green-500/20 p-1">
+              <Users className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="text-2xl font-bold">
               {Math.round(
                 companies.reduce((sum, company) => sum + company.employees, 0) / companies.length,
               ).toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">Employees per company</p>
+            <div className="flex items-center text-xs text-muted-foreground mt-1">
+              <span>Employees per company</span>
+            </div>
           </CardContent>
         </Card>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Companies</CardTitle>
-          <CardDescription>A list of all companies in your organization.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Industry</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead className="text-right">Employees</TableHead>
-                <TableHead className="text-right">Departments</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCompanies.map((company) => (
-                <TableRow key={company.id}>
-                  <TableCell className="font-medium">{company.name}</TableCell>
-                  <TableCell>{company.industry}</TableCell>
-                  <TableCell>{company.location}</TableCell>
-                  <TableCell className="text-right">{company.employees.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{company.departments}</TableCell>
-                  <TableCell>
-                    <div
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        company.status === "Active"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                      }`}
-                    >
-                      {company.status}
+
+      {viewMode === "table" ? (
+        <Card className="border-none shadow-md overflow-hidden">
+          <CardHeader>
+            <CardTitle>Companies</CardTitle>
+            <CardDescription>A list of all companies in your organization.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Industry</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead className="text-right">Employees</TableHead>
+                  <TableHead className="text-right">Departments</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCompanies.map((company) => (
+                  <TableRow key={company.id}>
+                    <TableCell className="font-medium">{company.name}</TableCell>
+                    <TableCell>{company.industry}</TableCell>
+                    <TableCell>{company.location}</TableCell>
+                    <TableCell className="text-right">{company.employees.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{company.departments}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={`${
+                          company.status === "Active"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200"
+                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200"
+                        }`}
+                      >
+                        {company.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem>View Details</DropdownMenuItem>
+                          <DropdownMenuItem>Edit Company</DropdownMenuItem>
+                          <DropdownMenuItem>Manage Departments</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600">
+                            {company.status === "Active" ? "Deactivate" : "Activate"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredCompanies.map((company) => (
+            <Card key={company.id} className="border-none shadow-md overflow-hidden">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <CardTitle>{company.name}</CardTitle>
+                    <CardDescription>{company.industry}</CardDescription>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`${
+                      company.status === "Active"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200"
+                    }`}
+                  >
+                    {company.status}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Building2 className="h-4 w-4" />
+                      <span>{company.location}</span>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-right">
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-lg">
+                        <span className="text-lg font-bold">{company.employees.toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground">Employees</span>
+                      </div>
+                      <div className="flex flex-col items-center justify-center p-3 bg-muted rounded-lg">
+                        <span className="text-lg font-bold">{company.departments}</span>
+                        <span className="text-xs text-muted-foreground">Departments</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
+                        <Button variant="ghost" size="sm">
+                          More
+                          <MoreHorizontal className="h-4 w-4 ml-1" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem>View Details</DropdownMenuItem>
                         <DropdownMenuItem>Edit Company</DropdownMenuItem>
                         <DropdownMenuItem>Manage Departments</DropdownMenuItem>
@@ -378,13 +468,13 @@ export default function CompaniesPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

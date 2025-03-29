@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function EmployeeRegisterPage() {
   const [formData, setFormData] = useState({
@@ -21,6 +22,7 @@ export default function EmployeeRegisterPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -31,11 +33,64 @@ export default function EmployeeRegisterPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate registration
-    setTimeout(() => {
+    // Validate inputs
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.inviteCode) {
+      toast({
+        title: "خطأ",
+        description: "يرجى ملء جميع الحقول المطلوبة",
+        variant: "destructive",
+      })
       setIsLoading(false)
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "خطأ",
+        description: "كلمة المرور وتأكيد كلمة المرور غير متطابقين",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      // For demo purposes, we'll simulate a successful registration
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Validate invite code (simple check for demo)
+      if (formData.inviteCode !== "DEMO123" && formData.inviteCode !== "EMP-1234-ABCD") {
+        throw new Error("رمز الدعوة غير صالح")
+      }
+
+      // Store user info in localStorage to simulate login
+      const user = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        role: "Employee",
+        department: "Engineering",
+      }
+
+      localStorage.setItem("user", JSON.stringify(user))
+
+      toast({
+        title: "تم إنشاء الحساب بنجاح",
+        description: "تم إنشاء حساب الموظف بنجاح وتسجيل دخولك تلقائياً",
+      })
+
+      // Redirect to dashboard
       router.push("/dashboard")
-    }, 1500)
+    } catch (error: any) {
+      console.error("Registration error:", error)
+      toast({
+        title: "خطأ في إنشاء الحساب",
+        description: error.message || "حدث خطأ أثناء محاولة إنشاء الحساب. يرجى المحاولة مرة أخرى.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -52,6 +107,9 @@ export default function EmployeeRegisterPage() {
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-bold">Join as Employee</h1>
           <p className="text-muted-foreground">Join your company with an invite code</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            (Use invite code "DEMO123" or "EMP-1234-ABCD" for testing)
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

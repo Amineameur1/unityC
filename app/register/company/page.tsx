@@ -9,19 +9,23 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function CompanyRegisterPage() {
   const [formData, setFormData] = useState({
+    companyName: "",
+    companyAddress: "",
+    companyEmail: "",
     firstName: "",
     lastName: "",
     email: "",
+    username: "",
     password: "",
     confirmPassword: "",
-    companyName: "",
-    companyIndustry: "",
   })
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -32,11 +36,103 @@ export default function CompanyRegisterPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate registration
-    setTimeout(() => {
+    // Validate inputs
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.email ||
+      !formData.password ||
+      !formData.companyName ||
+      !formData.username
+    ) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
       setIsLoading(false)
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      // Prepare the payload according to the specified format
+      const payload = {
+        company: {
+          name: formData.companyName,
+          address: formData.companyAddress,
+          contactEmail: formData.companyEmail,
+        },
+        employee: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+        },
+        user: {
+          username: formData.username,
+          password: formData.password,
+        },
+      }
+
+      console.log("Sending registration request with payload:", payload)
+
+      // Use our Next.js API route instead of direct call
+      const response = await fetch("/api/registration/company", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      console.log("Registration response status:", response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || errorData.message || "Registration failed")
+      }
+
+      const data = await response.json()
+      console.log("Registration response data:", data)
+
+      // For demo purposes, store user info in localStorage
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          role: "Company Manager",
+          company: formData.companyName,
+        }),
+      )
+
+      toast({
+        title: "Account created successfully",
+        description: "Your company account has been created and you're now logged in",
+      })
+
+      // Redirect to dashboard
       router.push("/dashboard")
-    }, 1500)
+    } catch (error: any) {
+      console.error("Registration error:", error)
+      toast({
+        title: "Account creation failed",
+        description: error.message || "An error occurred while creating your account. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -57,6 +153,41 @@ export default function CompanyRegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="companyName">Company Name</Label>
+              <Input
+                id="companyName"
+                name="companyName"
+                placeholder="Acme Inc."
+                value={formData.companyName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="companyAddress">Company Address</Label>
+              <Input
+                id="companyAddress"
+                name="companyAddress"
+                placeholder="123 Street"
+                value={formData.companyAddress}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="companyEmail">Company Email</Label>
+              <Input
+                id="companyEmail"
+                name="companyEmail"
+                type="email"
+                placeholder="company@example.com"
+                value={formData.companyEmail}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
@@ -82,7 +213,7 @@ export default function CompanyRegisterPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Your Email</Label>
               <Input
                 id="email"
                 name="email"
@@ -94,23 +225,12 @@ export default function CompanyRegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="companyName"
-                name="companyName"
-                placeholder="Acme Inc."
-                value={formData.companyName}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="companyIndustry">Industry</Label>
-              <Input
-                id="companyIndustry"
-                name="companyIndustry"
-                placeholder="Technology"
-                value={formData.companyIndustry}
+                id="username"
+                name="username"
+                placeholder="johndoe"
+                value={formData.username}
                 onChange={handleChange}
                 required
               />

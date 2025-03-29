@@ -2,105 +2,118 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import Cookies from "js-cookie"
+import type { User } from "@/services/auth"
 
-// تعريف نوع المستخدم
-type User = {
-  name: string
-  email: string
-  role: string
-  department?: string
-} | null
-
-// تعريف سياق المصادقة
+// Define auth context type
 type AuthContextType = {
-  user: User
-  login: (email: string, password: string, remember: boolean) => Promise<void>
+  user: User | null
+  login: (username: string, password: string) => Promise<void>
   logout: () => void
   isLoading: boolean
 }
 
-// إنشاء سياق المصادقة
+// Create auth context
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// مزود المصادقة
+// Auth provider
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
 
-  // التحقق من حالة المصادقة عند تحميل التطبيق
+  // Check auth status when app loads
   useEffect(() => {
     const checkAuth = () => {
-      const authToken = Cookies.get("auth-token")
-      const userStr = localStorage.getItem("user")
-
-      if (authToken && userStr) {
-        try {
-          const userData = JSON.parse(userStr)
-          setUser(userData)
-        } catch (error) {
-          console.error("Error parsing user data:", error)
+      try {
+        const userStr = localStorage.getItem("user")
+        if (userStr) {
+          const currentUser = JSON.parse(userStr)
+          setUser(currentUser)
+        } else {
           setUser(null)
-          Cookies.remove("auth-token")
-          localStorage.removeItem("user")
         }
-      } else {
+      } catch (error) {
+        console.error("Error checking auth:", error)
         setUser(null)
       }
-
       setIsLoading(false)
     }
 
     checkAuth()
   }, [])
 
-  // إعادة التوجيه بناءً على حالة المصادقة
+  // Redirect based on auth status
+  // تعديل آلية التوجيه بناءً على حالة المصادقة
   useEffect(() => {
-    if (!isLoading) {
-      // إذا كان المستخدم غير مسجل دخوله ويحاول الوصول إلى مسار محمي
-      if (!user && pathname?.startsWith("/dashboard")) {
-        router.push(`/login?callbackUrl=${pathname}`)
-      }
+    if (isLoading) return // لا تقم بأي توجيه أثناء التحميل
 
-      // إذا كان المستخدم مسجل دخوله ويحاول الوصول إلى صفحة تسجيل الدخول أو التسجيل
-      if (user && (pathname === "/login" || pathname === "/register")) {
-        router.push("/dashboard")
-      }
+    // تخزين المسار الحالي للرجوع إليه بعد تسجيل الدخول
+    const currentPath = pathname || "/"
+
+    // إذا كان المستخدم غير مسجل الدخول ويحاول الوصول إلى صفحة محمية
+    if (!user && currentPath.startsWith("/dashboard")) {
+      // تخزين المسار المطلوب في localStorage للعودة إليه بعد تسجيل الدخول
+      localStorage.setItem("authRedirectPath", currentPath)
+      router.push("/login")
+      return
+    }
+
+    // إذا كان المستخدم مسجل الدخول ويحاول الوصول إلى صفحة تسجيل الدخول أو التسجيل
+    if (user && (currentPath === "/login" || currentPath === "/register" || currentPath.startsWith("/register/"))) {
+      // التحقق من وجود مسار محفوظ للعودة إليه
+      const redirectPath = localStorage.getItem("authRedirectPath") || "/dashboard"
+      localStorage.removeItem("authRedirectPath") // مسح المسار المحفوظ بعد استخدامه
+      router.push(redirectPath)
+      return
     }
   }, [user, isLoading, pathname, router])
 
-  // دالة تسجيل الدخول
-  const login = async (email: string, password: string, remember: boolean) => {
+  // تعديل وظيفة تسجيل الدخول لمعالجة الاستجابة بالشكل الصحيح
+  // Login function
+  // تعديل وظيفة تسجيل الدخول
+  const login = async (username: string, password: string) => {
     setIsLoading(true)
 
     try {
-      // في تطبيق حقيقي، ستقوم بإرسال طلب إلى الخادم للتحقق من بيانات المستخدم
-      // هنا نقوم بمحاكاة عملية تسجيل الدخول
+      // Use the internal API endpoint instead of direct endpoint
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      })
 
-      // تأخير لمحاكاة طلب الشبكة
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // تعيين token في الكوكيز
-      const expirationDays = remember ? 30 : 1
-      Cookies.set("auth-token", "sample-auth-token-123456", { expires: expirationDays })
-
-      // إنشاء كائن المستخدم
-      const userData = {
-        name: "محمد عبدالله",
-        email: email,
-        role: "Company Manager",
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Login failed")
       }
 
-      // تخزين معلومات المستخدم في localStorage
-      localStorage.setItem("user", JSON.stringify(userData))
+      const data = await response.json()
 
-      // تحديث حالة المستخدم
-      setUser(userData)
+      // Validate that we have a user object with required fields
+      if (!data.user || !data.user.role) {
+        throw new Error("Invalid user data received from server")
+      }
 
-      // إعادة التوجيه إلى لوحة التحكم
-      router.push("/dashboard")
+      // Store user info in localStorage
+      localStorage.setItem("user", JSON.stringify(data.user))
+      if (data.token) {
+        localStorage.setItem("token", data.token)
+      }
+
+      setUser(data.user)
+
+      // Check for a saved redirect path
+      const redirectPath = localStorage.getItem("authRedirectPath") || "/dashboard"
+      localStorage.removeItem("authRedirectPath") // Clear the saved path after using it
+
+      router.push(redirectPath)
+      return { user: data.user }
     } catch (error) {
       console.error("Login error:", error)
       throw error
@@ -109,25 +122,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // دالة تسجيل الخروج
+  // Logout function
   const logout = () => {
-    // حذف token من الكوكيز
-    Cookies.remove("auth-token")
+    try {
+      // إزالة بيانات المستخدم من التخزين المحلي
+      localStorage.removeItem("user")
 
-    // حذف معلومات المستخدم من localStorage
-    localStorage.removeItem("user")
+      // تحديث حالة المستخدم إلى null
+      setUser(null)
 
-    // تحديث حالة المستخدم
-    setUser(null)
+      // إعادة توجيه المستخدم إلى صفحة تسجيل الدخول
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout error:", error)
 
-    // إعادة التوجيه إلى صفحة تسجيل الدخول
-    router.push("/login")
+      // حتى في حالة حدوث خطأ، نقوم بإزالة بيانات المستخدم وإعادة التوجيه
+      localStorage.removeItem("user")
+      setUser(null)
+      router.push("/login")
+    }
   }
 
   return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
 }
 
-// Hook لاستخدام سياق المصادقة
+// Hook to use auth context
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {

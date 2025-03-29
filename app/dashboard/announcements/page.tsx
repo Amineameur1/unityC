@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -28,7 +28,6 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Bell,
-  CalendarIcon,
   MessageSquare,
   MoreHorizontal,
   Plus,
@@ -40,11 +39,11 @@ import {
   Building2,
   Package,
   Settings,
+  Loader2,
 } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/components/ui/use-toast"
 
 // Sample announcement data
 const initialAnnouncements = [
@@ -56,7 +55,8 @@ const initialAnnouncements = [
     author: "Emily Davis",
     department: "Human Resources",
     priority: "Normal",
-    date: new Date(2023, 5, 25),
+    createdAt: "2023-06-25T12:00:00Z",
+    updatedAt: "2023-06-25T12:00:00Z",
     target: "Company",
   },
   {
@@ -67,7 +67,8 @@ const initialAnnouncements = [
     author: "Emily Davis",
     department: "Human Resources",
     priority: "Important",
-    date: new Date(2023, 5, 28),
+    createdAt: "2023-06-28T10:30:00Z",
+    updatedAt: "2023-06-28T10:30:00Z",
     target: "Company",
   },
   {
@@ -78,7 +79,8 @@ const initialAnnouncements = [
     author: "Sarah Johnson",
     department: "Marketing",
     priority: "High",
-    date: new Date(2023, 6, 1),
+    createdAt: "2023-07-01T09:15:00Z",
+    updatedAt: "2023-07-01T09:15:00Z",
     target: "Department",
   },
   {
@@ -89,7 +91,8 @@ const initialAnnouncements = [
     author: "John Smith",
     department: "Engineering",
     priority: "Important",
-    date: new Date(2023, 6, 5),
+    createdAt: "2023-07-05T14:20:00Z",
+    updatedAt: "2023-07-05T14:20:00Z",
     target: "Company",
   },
   {
@@ -100,7 +103,8 @@ const initialAnnouncements = [
     author: "Emily Davis",
     department: "Human Resources",
     priority: "Normal",
-    date: new Date(2023, 6, 7),
+    createdAt: "2023-07-07T11:45:00Z",
+    updatedAt: "2023-07-07T11:45:00Z",
     target: "Department",
   },
   {
@@ -111,7 +115,8 @@ const initialAnnouncements = [
     author: "David Wilson",
     department: "Engineering",
     priority: "Critical",
-    date: new Date(2023, 6, 2),
+    createdAt: "2023-07-02T16:30:00Z",
+    updatedAt: "2023-07-02T16:30:00Z",
     target: "Company",
   },
 ]
@@ -176,29 +181,59 @@ const initialNotifications = [
   },
 ]
 
+// Interface for announcement
+interface Announcement {
+  id: number
+  uuid?: string
+  title: string
+  content: string
+  priority: string
+  author?: string
+  department?: string
+  date?: Date
+  target?: string
+  createdAt: string
+  updatedAt: string
+  companyId?: number
+}
+
 export default function AnnouncementsPage() {
-  const [announcements, setAnnouncements] = useState(initialAnnouncements)
+  const { toast } = useToast()
+  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements)
   const [notifications, setNotifications] = useState(initialNotifications)
   const [searchQuery, setSearchQuery] = useState("")
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
     content: "",
-    author: "John Doe",
-    department: "",
     priority: "Normal",
-    date: new Date(),
-    target: "Company",
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [activeTab, setActiveTab] = useState("announcements")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Simulate API loading with mock data
+  useEffect(() => {
+    // Simulate API loading delay
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+      toast({
+        title: "Mock Data Loaded",
+        description: "Using sample data since the API server is not available.",
+        variant: "default",
+      })
+    }, 1500)
+
+    return () => clearTimeout(timer)
+  }, [toast])
 
   const filteredAnnouncements = announcements.filter(
     (announcement) =>
       announcement.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       announcement.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      announcement.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      announcement.department.toLowerCase().includes(searchQuery.toLowerCase()),
+      (announcement.author && announcement.author.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (announcement.department && announcement.department.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const filteredNotifications = notifications.filter(
@@ -220,33 +255,56 @@ export default function AnnouncementsPage() {
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
       setDate(date)
-      setNewAnnouncement((prev) => ({ ...prev, date: date }))
     }
   }
 
-  const handleAddAnnouncement = () => {
-    const newId = announcements.length > 0 ? Math.max(...announcements.map((a) => a.id)) + 1 : 1
-    const announcementToAdd = {
-      id: newId,
-      title: newAnnouncement.title,
-      content: newAnnouncement.content,
-      author: newAnnouncement.author,
-      department: newAnnouncement.department,
-      priority: newAnnouncement.priority,
-      date: newAnnouncement.date,
-      target: newAnnouncement.target,
-    }
-    setAnnouncements([...announcements, announcementToAdd])
-    setNewAnnouncement({
-      title: "",
-      content: "",
-      author: "John Doe",
-      department: "",
-      priority: "Normal",
-      date: new Date(),
-      target: "Company",
-    })
-    setIsDialogOpen(false)
+  const handleAddAnnouncement = async () => {
+    setIsSubmitting(true)
+
+    // Simulate API delay
+    setTimeout(() => {
+      try {
+        // Create a new announcement with mock data
+        const newId = Math.max(...announcements.map((a) => a.id)) + 1
+        const mockAnnouncement: Announcement = {
+          id: newId,
+          title: newAnnouncement.title,
+          content: newAnnouncement.content,
+          priority: newAnnouncement.priority,
+          author: "Current User",
+          department: "Your Department",
+          target: "Company",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+
+        // Add the new announcement to the state
+        setAnnouncements((prev) => [...prev, mockAnnouncement])
+
+        // Reset form
+        setNewAnnouncement({
+          title: "",
+          content: "",
+          priority: "Normal",
+        })
+
+        toast({
+          title: "Success",
+          description: "Announcement created successfully! (Mock data)",
+        })
+
+        setIsDialogOpen(false)
+      } catch (error) {
+        console.error("Failed to create announcement:", error)
+        toast({
+          title: "Error",
+          description: "Failed to create announcement. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsSubmitting(false)
+      }
+    }, 1000) // Simulate 1 second delay
   }
 
   const markNotificationAsRead = (id: number) => {
@@ -344,6 +402,12 @@ export default function AnnouncementsPage() {
     }
   }
 
+  // Format date from ISO string
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return format(date, "MMMM d, yyyy")
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
       <div className="flex items-center justify-between">
@@ -385,79 +449,38 @@ export default function AnnouncementsPage() {
                   rows={5}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Select
-                    value={newAnnouncement.department}
-                    onValueChange={(value) => handleSelectChange("department", value)}
-                  >
-                    <SelectTrigger id="department">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Engineering">Engineering</SelectItem>
-                      <SelectItem value="Marketing">Marketing</SelectItem>
-                      <SelectItem value="Finance">Finance</SelectItem>
-                      <SelectItem value="Human Resources">Human Resources</SelectItem>
-                      <SelectItem value="Sales">Sales</SelectItem>
-                      <SelectItem value="Product">Product</SelectItem>
-                      <SelectItem value="Customer Support">Customer Support</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select
-                    value={newAnnouncement.priority}
-                    onValueChange={(value) => handleSelectChange("priority", value)}
-                  >
-                    <SelectTrigger id="priority">
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Normal">Normal</SelectItem>
-                      <SelectItem value="Important">Important</SelectItem>
-                      <SelectItem value="High">High</SelectItem>
-                      <SelectItem value="Critical">Critical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="target">Target Audience</Label>
-                  <Select value={newAnnouncement.target} onValueChange={(value) => handleSelectChange("target", value)}>
-                    <SelectTrigger id="target">
-                      <SelectValue placeholder="Select target" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Company">Entire Company</SelectItem>
-                      <SelectItem value="Department">Department Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={newAnnouncement.priority}
+                  onValueChange={(value) => handleSelectChange("priority", value)}
+                >
+                  <SelectTrigger id="priority">
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Normal">Normal</SelectItem>
+                    <SelectItem value="Important">Important</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button onClick={handleAddAnnouncement}>Publish</Button>
+              <Button onClick={handleAddAnnouncement} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  "Publish"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -523,7 +546,14 @@ export default function AnnouncementsPage() {
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
         <TabsContent value="announcements" className="mt-4 space-y-4">
-          {filteredAnnouncements.length === 0 ? (
+          {isLoading ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-10">
+                <Loader2 className="h-10 w-10 text-muted-foreground mb-4 animate-spin" />
+                <p className="text-muted-foreground text-center">Loading announcements...</p>
+              </CardContent>
+            </Card>
+          ) : filteredAnnouncements.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-10">
                 <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />
@@ -540,13 +570,14 @@ export default function AnnouncementsPage() {
                       <div>
                         <CardTitle>{announcement.title}</CardTitle>
                         <CardDescription>
-                          {format(announcement.date, "MMMM d, yyyy")} • {announcement.author} •{" "}
-                          {announcement.department}
+                          {announcement.createdAt ? formatDate(announcement.createdAt) : "No date"}
+                          {announcement.author && ` • ${announcement.author}`}
+                          {announcement.department && ` • ${announcement.department}`}
                         </CardDescription>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {getTargetIcon(announcement.target)}
+                      {announcement.target && getTargetIcon(announcement.target)}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -573,7 +604,9 @@ export default function AnnouncementsPage() {
                   <div className="text-xs text-muted-foreground">
                     {announcement.target === "Company"
                       ? "Visible to all employees"
-                      : `Visible to ${announcement.department} department`}
+                      : announcement.department
+                        ? `Visible to ${announcement.department} department`
+                        : "Visibility not specified"}
                   </div>
                   <Button variant="ghost" size="sm">
                     Read More

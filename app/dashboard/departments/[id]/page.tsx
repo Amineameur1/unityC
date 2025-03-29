@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Building2, Calendar, Mail, Phone, UserCog, Users } from "lucide-react"
 import Link from "next/link"
 
+// Import the useAuth hook at the top of the file with the other imports
+import { useAuth } from "@/components/auth-provider"
+
 // Sample department data
 const departmentsData = [
   {
@@ -112,11 +115,16 @@ const departmentsData = [
   },
 ]
 
+// In the DepartmentDetailsPage component, add the following code to get the user's company ID
 export default function DepartmentDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const [department, setDepartment] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth() // Get the authenticated user
+
+  // Get the user's company ID
+  const userCompanyId = user?.company || null
 
   useEffect(() => {
     // In a real application, you would fetch the department data from an API
@@ -125,6 +133,12 @@ export default function DepartmentDetailsPage() {
     const foundDepartment = departmentsData.find((dept) => dept.id === departmentId)
 
     if (foundDepartment) {
+      // In a real app, you would check if the department belongs to the user's company
+      // if (foundDepartment.companyId !== userCompanyId) {
+      //   router.push("/dashboard/departments")
+      //   return
+      // }
+
       setDepartment(foundDepartment)
     } else {
       // If department not found, redirect to departments list
@@ -132,14 +146,14 @@ export default function DepartmentDetailsPage() {
     }
 
     setLoading(false)
-  }, [params.id, router])
+  }, [params.id, router, userCompanyId])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">جاري تحميل بيانات القسم...</p>
+          <p className="mt-4 text-muted-foreground">Loading department data...</p>
         </div>
       </div>
     )
@@ -149,7 +163,7 @@ export default function DepartmentDetailsPage() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <p className="text-muted-foreground">لم يتم العثور على القسم المطلوب</p>
+          <p className="text-muted-foreground">The requested department was not found</p>
         </div>
       </div>
     )
@@ -172,42 +186,42 @@ export default function DepartmentDetailsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">عدد الموظفين</CardTitle>
+            <CardTitle className="text-sm font-medium">Employee Count</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{department.employeeCount}</div>
-            <p className="text-xs text-muted-foreground">موظف في القسم</p>
+            <p className="text-xs text-muted-foreground">employees in department</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المشاريع</CardTitle>
+            <CardTitle className="text-sm font-medium">Projects</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{department.projects.length}</div>
-            <p className="text-xs text-muted-foreground">مشروع نشط</p>
+            <p className="text-xs text-muted-foreground">active projects</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">الميزانية</CardTitle>
+            <CardTitle className="text-sm font-medium">Budget</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${(department.budget / 1000).toFixed(0)}K</div>
-            <p className="text-xs text-muted-foreground">الميزانية السنوية</p>
+            <div className="text-2xl font-bold">${department.budget?.toLocaleString() || "0"}</div>
+            <p className="text-xs text-muted-foreground">annual budget</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">تاريخ الإنشاء</CardTitle>
+            <CardTitle className="text-sm font-medium">Creation Date</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{department.createdAt.toLocaleDateString()}</div>
-            <p className="text-xs text-muted-foreground">تاريخ إنشاء القسم</p>
+            <p className="text-xs text-muted-foreground">department creation date</p>
           </CardContent>
         </Card>
       </div>
@@ -215,21 +229,21 @@ export default function DepartmentDetailsPage() {
       <div className="grid gap-4 md:grid-cols-7">
         <Card className="md:col-span-3">
           <CardHeader>
-            <CardTitle>معلومات القسم</CardTitle>
-            <CardDescription>تفاصيل ومعلومات عن القسم</CardDescription>
+            <CardTitle>Department Information</CardTitle>
+            <CardDescription>Details and information about the department</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <h3 className="font-medium mb-2">الوصف</h3>
+              <h3 className="font-medium mb-2">Description</h3>
               <p className="text-sm text-muted-foreground">{department.description}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h3 className="font-medium mb-2">الشركة</h3>
+                <h3 className="font-medium mb-2">Company</h3>
                 <p className="text-sm text-muted-foreground">{department.company}</p>
               </div>
               <div>
-                <h3 className="font-medium mb-2">الموقع</h3>
+                <h3 className="font-medium mb-2">Location</h3>
                 <p className="text-sm text-muted-foreground">{department.location}</p>
               </div>
             </div>
@@ -238,8 +252,8 @@ export default function DepartmentDetailsPage() {
 
         <Card className="md:col-span-4">
           <CardHeader>
-            <CardTitle>مدير القسم</CardTitle>
-            <CardDescription>معلومات عن مدير القسم</CardDescription>
+            <CardTitle>Department Manager</CardTitle>
+            <CardDescription>Information about the department manager</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-start gap-4">
@@ -256,7 +270,7 @@ export default function DepartmentDetailsPage() {
                 <h3 className="font-medium text-lg">{department.manager}</h3>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <UserCog className="h-4 w-4" />
-                  <span>مدير القسم</span>
+                  <span>Department Manager</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Mail className="h-4 w-4" />
@@ -274,23 +288,23 @@ export default function DepartmentDetailsPage() {
 
       <Tabs defaultValue="employees">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="employees">الموظفين</TabsTrigger>
-          <TabsTrigger value="projects">المشاريع</TabsTrigger>
+          <TabsTrigger value="employees">Employees</TabsTrigger>
+          <TabsTrigger value="projects">Projects</TabsTrigger>
         </TabsList>
         <TabsContent value="employees" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>موظفي القسم</CardTitle>
-              <CardDescription>قائمة بجميع الموظفين في القسم</CardDescription>
+              <CardTitle>Department Employees</CardTitle>
+              <CardDescription>List of all employees in the department</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>الاسم</TableHead>
-                    <TableHead>المنصب</TableHead>
-                    <TableHead>البريد الإلكتروني</TableHead>
-                    <TableHead className="text-right">تاريخ الانضمام</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Position</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-right">Join Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -310,16 +324,16 @@ export default function DepartmentDetailsPage() {
         <TabsContent value="projects" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>مشاريع القسم</CardTitle>
-              <CardDescription>قائمة بالمشاريع الحالية للقسم</CardDescription>
+              <CardTitle>Department Projects</CardTitle>
+              <CardDescription>List of current department projects</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>اسم المشروع</TableHead>
-                    <TableHead>الحالة</TableHead>
-                    <TableHead className="text-right">الموعد النهائي</TableHead>
+                    <TableHead>Project Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Deadline</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -338,10 +352,10 @@ export default function DepartmentDetailsPage() {
                           }
                         >
                           {project.status === "Completed"
-                            ? "مكتمل"
+                            ? "Completed"
                             : project.status === "In Progress"
-                              ? "قيد التنفيذ"
-                              : "في مرحلة التخطيط"}
+                              ? "In Progress"
+                              : "Planning"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">{project.deadline.toLocaleDateString()}</TableCell>

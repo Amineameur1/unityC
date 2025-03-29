@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { ArrowRight, CheckCircle, Layers } from "lucide-react"
 
 export default function Home() {
   return (
@@ -7,26 +8,14 @@ export default function Home() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-xl">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6"
-            >
-              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
-              <path d="M18 14h-8" />
-              <path d="M15 18h-5" />
-              <path d="M10 6h8v4h-8V6Z" />
-            </svg>
+            <div className="rounded-md bg-primary p-1">
+              <Layers className="h-6 w-6 text-primary-foreground" />
+            </div>
             EnterpriseOS
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
-              <Button variant="outline">Log in</Button>
+              <Button variant="ghost">Log in</Button>
             </Link>
             <Link href="/register">
               <Button>Sign up</Button>
@@ -35,7 +24,7 @@ export default function Home() {
         </div>
       </header>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
+        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-br from-background to-muted">
           <div className="container px-4 md:px-6">
             <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
               <div className="flex flex-col justify-center space-y-4">
@@ -50,8 +39,9 @@ export default function Home() {
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Link href="/register">
-                    <Button size="lg" className="w-full">
+                    <Button size="lg" className="w-full group">
                       Get Started
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Button>
                   </Link>
                   <Link href="/dashboard/demo">
@@ -60,11 +50,26 @@ export default function Home() {
                     </Button>
                   </Link>
                 </div>
+
+                <div className="mt-6 flex flex-col gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span>Integrated company and department management</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span>Efficient task and resource tracking</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <span>Advanced reporting and analytics</span>
+                  </div>
+                </div>
               </div>
               <div className="flex items-center justify-center">
                 <div className="relative h-[350px] w-full md:h-[450px] lg:h-[500px]">
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg border p-4">
-                    <div className="h-full w-full rounded-md bg-muted/30 backdrop-blur-sm flex flex-col">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl border shadow-lg p-4">
+                    <div className="h-full w-full rounded-xl bg-background/80 backdrop-blur-sm flex flex-col overflow-hidden">
                       <div className="flex items-center border-b p-4">
                         <div className="h-2 w-2 rounded-full bg-red-500 mr-2"></div>
                         <div className="h-2 w-2 rounded-full bg-yellow-500 mr-2"></div>
@@ -81,14 +86,14 @@ export default function Home() {
                         </div>
                         <div className="flex-1 p-4">
                           <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div className="h-20 rounded bg-muted/70"></div>
-                            <div className="h-20 rounded bg-muted/70"></div>
+                            <div className="h-20 rounded-lg bg-primary/10 shadow-sm"></div>
+                            <div className="h-20 rounded-lg bg-secondary/10 shadow-sm"></div>
                           </div>
-                          <div className="h-40 rounded bg-muted/50 mb-4"></div>
+                          <div className="h-40 rounded-lg bg-muted/70 shadow-sm mb-4"></div>
                           <div className="grid grid-cols-3 gap-2">
-                            <div className="h-16 rounded bg-muted/30"></div>
-                            <div className="h-16 rounded bg-muted/30"></div>
-                            <div className="h-16 rounded bg-muted/30"></div>
+                            <div className="h-16 rounded-lg bg-muted/50 shadow-sm"></div>
+                            <div className="h-16 rounded-lg bg-muted/50 shadow-sm"></div>
+                            <div className="h-16 rounded-lg bg-muted/50 shadow-sm"></div>
                           </div>
                         </div>
                       </div>
@@ -99,8 +104,61 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/30">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="space-y-2">
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Key Features</h2>
+                <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                  Discover how our system can improve your organization's efficiency and streamline daily operations
+                </p>
+              </div>
+            </div>
+            <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3 lg:gap-12 mt-12">
+              {[
+                {
+                  title: "Company Management",
+                  description:
+                    "Comprehensive management of companies, branches, and departments in an easy and flexible way",
+                },
+                {
+                  title: "Employee Management",
+                  description: "Complete tracking of employees, their performance, tasks, and evaluations",
+                },
+                {
+                  title: "Task Management",
+                  description: "Organize and distribute tasks and track their completion with high efficiency",
+                },
+                {
+                  title: "Resource Management",
+                  description: "Track available resources and distribute them between departments and projects",
+                },
+                {
+                  title: "Reports & Analytics",
+                  description: "Detailed reports and accurate statistics to help you make decisions",
+                },
+                {
+                  title: "Announcements & Alerts",
+                  description: "Integrated system for announcements and alerts to ensure effective communication",
+                },
+              ].map((feature, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col items-center space-y-2 rounded-lg border bg-background p-6 shadow-sm transition-all hover:shadow-md"
+                >
+                  <div className="rounded-full bg-primary/10 p-2 mb-2">
+                    <Layers className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold">{feature.title}</h3>
+                  <p className="text-muted-foreground text-center">{feature.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
-      <footer className="w-full border-t py-6">
+      <footer className="w-full border-t py-6 bg-background">
         <div className="container flex flex-col items-center justify-center gap-4 md:flex-row md:justify-between">
           <p className="text-sm text-muted-foreground">© 2024 EnterpriseOS. All rights reserved.</p>
           <div className="flex items-center gap-4">

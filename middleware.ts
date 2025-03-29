@@ -1,34 +1,38 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// هذه الدالة تحدد ما إذا كان المستخدم قد سجل دخوله أم لا
-// في تطبيق حقيقي، ستتحقق من وجود token صالح أو جلسة مستخدم
+// This function determines if the user is authenticated
 function isAuthenticated(request: NextRequest): boolean {
-  // تحقق من وجود token في الكوكيز
-  const authToken = request.cookies.get("auth-token")?.value
+  // For demo purposes, we'll check for a cookie that would be set on login
+  const hasAuthCookie = request.cookies.has("auth")
 
-  // في بيئة الإنتاج، ستقوم بالتحقق من صلاحية الـ token
-  // هنا نقوم بتحقق بسيط للتوضيح فقط
-  return !!authToken
+  // In a real application, you would verify the token's validity
+  return hasAuthCookie
 }
 
 export function middleware(request: NextRequest) {
-  // تحقق مما إذا كان المسار يبدأ بـ /dashboard
+  // For demo purposes, we'll bypass authentication
+  // In a real application, you would check authentication status
+
+  // Uncomment the following code to enable authentication checks
+  /*
+  // Check if the path starts with /dashboard
   if (request.nextUrl.pathname.startsWith("/dashboard")) {
-    // تحقق من حالة المصادقة
+    // Check authentication status
     if (!isAuthenticated(request)) {
-      // إذا لم يكن المستخدم مصرح له، قم بإعادة توجيهه إلى صفحة تسجيل الدخول
-      // مع تخزين المسار الأصلي كمعلمة استعلام للعودة إليه بعد تسجيل الدخول
+      // If user is not authorized, redirect to login page
+      // with the original path as a query parameter to return after login
       const loginUrl = new URL("/login", request.url)
       loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname)
       return NextResponse.redirect(loginUrl)
     }
   }
+  */
 
   return NextResponse.next()
 }
 
-// تحديد المسارات التي سيتم تطبيق الـ middleware عليها
+// Define which paths the middleware applies to
 export const config = {
   matcher: ["/dashboard/:path*"],
 }

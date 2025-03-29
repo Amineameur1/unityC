@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -27,8 +27,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MoreHorizontal, Plus, Search, Users } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
-// Sample employee data
+// Sample employee data for initial state
 const initialEmployees = [
   {
     id: 1,
@@ -108,21 +109,49 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState(initialEmployees)
   const [searchQuery, setSearchQuery] = useState("")
   const [newEmployee, setNewEmployee] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
-    department: "",
-    role: "",
-    company: "",
+    departmentId: "",
+    companyId: "6", // Default company ID from the example
+    jobTitle: "",
+    role: "Employee", // Default role
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [departments, setDepartments] = useState([])
+  const { toast } = useToast()
+
+  // Fetch departments for the dropdown
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await fetch("http://localhost:5001/api/v1/department")
+        if (!response.ok) {
+          throw new Error("Failed to fetch departments")
+        }
+        const data = await response.json()
+        setDepartments(data)
+      } catch (error) {
+        console.error("Error fetching departments:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load departments. Please try again later.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    fetchDepartments()
+  }, [toast])
 
   const filteredEmployees = employees.filter(
     (employee) =>
-      employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.company.toLowerCase().includes(searchQuery.toLowerCase()),
+      employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      employee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      employee.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      employee.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      employee.company?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,26 +163,79 @@ export default function EmployeesPage() {
     setNewEmployee((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleAddEmployee = () => {
-    const newId = employees.length > 0 ? Math.max(...employees.map((e) => e.id)) + 1 : 1
-    const employeeToAdd = {
-      id: newId,
-      name: newEmployee.name,
-      email: newEmployee.email,
-      department: newEmployee.department,
-      role: newEmployee.role,
-      company: newEmployee.company,
-      status: "Active",
+  const handleAddEmployee = async () => {
+    setIsLoading(true)
+    try {
+      // Format the request body according to the API requirements
+      const requestBody = {
+        employee: {
+          firstName: newEmployee.firstName,
+          lastName: newEmployee.lastName,
+          email: newEmployee.email,
+          departmentId: newEmployee.departmentId,
+          companyId: newEmployee.companyId,
+          jobTitle: newEmployee.jobTitle,
+          role: newEmployee.role,
+        },
+      }
+
+      // Make the API call
+      const response = await fetch("http://localhost:5001/api/v1/registration/owner/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to create employee")
+      }
+
+      const data = await response.json()
+
+      // Add the new employee to the state
+      const newEmployeeData = {
+        id: data.id || Date.now(), // Use the ID from the API or generate a temporary one
+        name: `${data.firstName || newEmployee.firstName} ${data.lastName || newEmployee.lastName}`,
+        email: data.email || newEmployee.email,
+        department: departments.find((d) => d.id === Number.parseInt(newEmployee.departmentId))?.name || "Unknown",
+        role: data.role || newEmployee.role,
+        jobTitle: data.jobTitle || newEmployee.jobTitle,
+        company: "Your Company", // This could be fetched from the API if available
+        status: "Active",
+      }
+
+      setEmployees([...employees, newEmployeeData])
+
+      // Reset the form
+      setNewEmployee({
+        firstName: "",
+        lastName: "",
+        email: "",
+        departmentId: "",
+        companyId: "6",
+        jobTitle: "",
+        role: "Employee",
+      })
+
+      toast({
+        title: "Success",
+        description: "Employee created successfully!",
+      })
+
+      setIsDialogOpen(false)
+    } catch (error) {
+      console.error("Error creating employee:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create employee. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
-    setEmployees([...employees, employeeToAdd])
-    setNewEmployee({
-      name: "",
-      email: "",
-      department: "",
-      role: "",
-      company: "",
-    })
-    setIsDialogOpen(false)
   }
 
   return (
@@ -176,15 +258,27 @@ export default function EmployeesPage() {
               <DialogDescription>Enter the details of the new employee to add to your organization.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={newEmployee.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter full name"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    value={newEmployee.firstName}
+                    onChange={handleInputChange}
+                    placeholder="Enter first name"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    value={newEmployee.lastName}
+                    onChange={handleInputChange}
+                    placeholder="Enter last name"
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
@@ -198,58 +292,54 @@ export default function EmployeesPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="company">Company</Label>
-                <Select value={newEmployee.company} onValueChange={(value) => handleSelectChange("company", value)}>
-                  <SelectTrigger id="company">
-                    <SelectValue placeholder="Select company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Acme Corporation">Acme Corporation</SelectItem>
-                    <SelectItem value="Globex Industries">Globex Industries</SelectItem>
-                    <SelectItem value="Initech Solutions">Initech Solutions</SelectItem>
-                    <SelectItem value="Umbrella Corporation">Umbrella Corporation</SelectItem>
-                    <SelectItem value="Stark Industries">Stark Industries</SelectItem>
-                    <SelectItem value="Wayne Enterprises">Wayne Enterprises</SelectItem>
-                    <SelectItem value="Cyberdyne Systems">Cyberdyne Systems</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="department">Department</Label>
+                <Label htmlFor="departmentId">Department</Label>
                 <Select
-                  value={newEmployee.department}
-                  onValueChange={(value) => handleSelectChange("department", value)}
+                  value={newEmployee.departmentId}
+                  onValueChange={(value) => handleSelectChange("departmentId", value)}
                 >
-                  <SelectTrigger id="department">
+                  <SelectTrigger id="departmentId">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Engineering">Engineering</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
-                    <SelectItem value="Human Resources">Human Resources</SelectItem>
-                    <SelectItem value="Sales">Sales</SelectItem>
-                    <SelectItem value="Product">Product</SelectItem>
-                    <SelectItem value="Customer Support">Customer Support</SelectItem>
+                    {departments.map((department) => (
+                      <SelectItem key={department.id} value={department.id.toString()}>
+                        {department.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="jobTitle">Job Title</Label>
                 <Input
-                  id="role"
-                  name="role"
-                  value={newEmployee.role}
+                  id="jobTitle"
+                  name="jobTitle"
+                  value={newEmployee.jobTitle}
                   onChange={handleInputChange}
                   placeholder="Enter job title"
                 />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Select value={newEmployee.role} onValueChange={(value) => handleSelectChange("role", value)}>
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Admin">Admin</SelectItem>
+                    <SelectItem value="Manager">Manager</SelectItem>
+                    <SelectItem value="Employee">Employee</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isLoading}>
                 Cancel
               </Button>
-              <Button onClick={handleAddEmployee}>Add Employee</Button>
+              <Button onClick={handleAddEmployee} disabled={isLoading}>
+                {isLoading ? "Creating..." : "Add Employee"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -300,7 +390,7 @@ export default function EmployeesPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{new Set(employees.map((e) => e.department)).size}</div>
+            <div className="text-2xl font-bold">{departments.length}</div>
             <p className="text-xs text-muted-foreground">Across all companies</p>
           </CardContent>
         </Card>
@@ -326,7 +416,7 @@ export default function EmployeesPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{new Set(employees.map((e) => e.company)).size}</div>
+            <div className="text-2xl font-bold">1</div>
             <p className="text-xs text-muted-foreground">With active employees</p>
           </CardContent>
         </Card>
@@ -350,8 +440,8 @@ export default function EmployeesPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{new Set(employees.map((e) => e.role)).size}</div>
-            <p className="text-xs text-muted-foreground">Unique job titles</p>
+            <div className="text-2xl font-bold">3</div>
+            <p className="text-xs text-muted-foreground">Admin, Manager, Employee</p>
           </CardContent>
         </Card>
       </div>
@@ -367,8 +457,8 @@ export default function EmployeesPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Job Title</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Company</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -379,8 +469,8 @@ export default function EmployeesPage() {
                   <TableCell className="font-medium">{employee.name}</TableCell>
                   <TableCell>{employee.email}</TableCell>
                   <TableCell>{employee.department}</TableCell>
+                  <TableCell>{employee.jobTitle || employee.role}</TableCell>
                   <TableCell>{employee.role}</TableCell>
-                  <TableCell>{employee.company}</TableCell>
                   <TableCell>
                     <div
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${

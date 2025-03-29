@@ -1,8 +1,10 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,7 +13,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -29,6 +30,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MoreHorizontal, Plus, Search, Users, Building2, UserCog } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/components/auth-provider"
 
 // Sample department data
 const initialDepartments = [
@@ -98,6 +100,7 @@ const companies = [
   { id: 3, name: "Initech Solutions" },
   { id: 4, name: "Stark Industries" },
   { id: 5, name: "Wayne Enterprises" },
+  { id: 6, name: "Your Company" },
 ]
 
 export default function DepartmentsPage() {
@@ -108,70 +111,187 @@ export default function DepartmentsPage() {
   const [isChangeManagerDialogOpen, setIsChangeManagerDialogOpen] = useState(false)
   const [currentDepartment, setCurrentDepartment] = useState<any>(null)
   const { toast } = useToast()
+  const { user } = useAuth() // Get the authenticated user
+
+  // Get the user's company ID
+  const userCompanyId = user?.company || 6 // Default to ID 6 if not available
+
+  // Find the company name based on the user's company ID
+  const userCompanyName = companies.find((c) => c.id === userCompanyId)?.name || "Your Company"
 
   // New department form state
   const [newDepartment, setNewDepartment] = useState({
     name: "",
     description: "",
     manager: "",
-    company: "",
+    company: userCompanyName,
+    budget: "0",
+    companyId: userCompanyId,
   })
 
-  // Filter departments based on search query
-  const filteredDepartments = departments.filter(
-    (department) =>
-      department.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      department.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      department.manager.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      department.company.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
-
-  // Handle input change for new department form
+  // Handle input change for text fields
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setNewDepartment((prev) => ({ ...prev, [name]: value }))
+    setNewDepartment((prevDepartment) => ({
+      ...prevDepartment,
+      [name]: value,
+    }))
   }
 
-  // Handle select change for new department form
+  // Handle select change for dropdown fields
   const handleSelectChange = (name: string, value: string) => {
-    setNewDepartment((prev) => ({ ...prev, [name]: value }))
+    setNewDepartment((prevDepartment) => ({
+      ...prevDepartment,
+      [name]: value,
+    }))
   }
 
-  // Handle create department
-  const handleCreateDepartment = () => {
-    if (!newDepartment.name || !newDepartment.manager || !newDepartment.company) {
+  useEffect(() => {
+    // Function to fetch departments from the API
+    const fetchDepartments = async () => {
+      try {
+        const response = await fetch("http://localhost:5001/api/v1/department/")
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log("Fetched departments:", data)
+
+        // If the API returns an array of departments, map them to our format
+        if (Array.isArray(data)) {
+          const formattedDepartments = data.map((dept) => ({
+            id: dept.id,
+            name: dept.name,
+            description: dept.description || "No description available",
+            manager: dept.manager || "Not assigned",
+            employeeCount: dept.employeeCount || 0,
+            company: userCompanyName,
+            companyId: dept.companyId,
+            budget: Number.parseInt(dept.budget || "0"),
+            createdAt: new Date(dept.createdAt),
+          }))
+
+          setDepartments(formattedDepartments)
+        }
+      } catch (error) {
+        console.error("Error fetching departments:", error)
+        // Keep using the initial departments data if the API call fails
+        toast({
+          title: "Warning",
+          description: "Could not fetch departments from the API. Using sample data instead.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    // Call the function
+    fetchDepartments()
+  }, [userCompanyName]) // Re-fetch if the company name changes
+
+  // Filter departments based on search query and user's company
+  const filteredDepartments = departments.filter((department) => {
+    // If we have a company ID, only show departments for that company
+    if (userCompanyId !== null) {
+      // For demo purposes, we're using the company name for filtering
+      // In a real app, you would compare department.companyId === userCompanyId
+
+      // For now, let's show all departments in the demo
+      return (
+        department.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        department.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        department.manager.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    } else {
+      // If no company ID, show all departments (for admin users)
+      return (
+        department.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        department.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        department.manager.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+  })
+
+  // Update the handleCreateDepartment function to use the real API endpoint
+
+  // Replace the existing handleCreateDepartment function with this implementation:
+  const handleCreateDepartment = async () => {
+    if (!newDepartment.name || !newDepartment.budget) {
       toast({
-        title: "خطأ",
-        description: "يرجى ملء جميع الحقول المطلوبة",
+        title: "Error",
+        description: "Please fill in all required fields",
         variant: "destructive",
       })
       return
     }
 
-    const newId = departments.length > 0 ? Math.max(...departments.map((d) => d.id)) + 1 : 1
-    const departmentToAdd = {
-      id: newId,
-      name: newDepartment.name,
-      description: newDepartment.description,
-      manager: newDepartment.manager,
-      employeeCount: 0,
-      company: newDepartment.company,
-      createdAt: new Date(),
+    // Validate budget is a number
+    if (!/^\d+$/.test(newDepartment.budget)) {
+      toast({
+        title: "Error",
+        description: "Budget must be a valid number",
+        variant: "destructive",
+      })
+      return
     }
 
-    setDepartments([...departments, departmentToAdd])
-    setNewDepartment({
-      name: "",
-      description: "",
-      manager: "",
-      company: "",
-    })
-    setIsCreateDialogOpen(false)
+    try {
+      // Make the API call to create a department
+      const response = await fetch("http://localhost:5001/api/v1/department/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newDepartment.name,
+          budget: Number.parseInt(newDepartment.budget),
+        }),
+      })
 
-    toast({
-      title: "تم إنشاء القسم",
-      description: "تم إنشاء القسم الجديد بنجاح",
-    })
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
+      const createdDepartment = await response.json()
+      console.log("Created department:", createdDepartment)
+
+      // Add the new department to the state with the format expected by our UI
+      const departmentToAdd = {
+        id: createdDepartment.id,
+        name: createdDepartment.name,
+        description: newDepartment.description || "",
+        manager: newDepartment.manager || "Not assigned",
+        employeeCount: 0,
+        company: userCompanyName,
+        companyId: createdDepartment.companyId,
+        budget: Number.parseInt(createdDepartment.budget),
+        createdAt: new Date(createdDepartment.createdAt),
+      }
+
+      setDepartments([...departments, departmentToAdd])
+      setNewDepartment({
+        name: "",
+        description: "",
+        manager: "",
+        company: userCompanyName,
+        budget: "0",
+        companyId: userCompanyId,
+      })
+      setIsCreateDialogOpen(false)
+
+      toast({
+        title: "Department Created",
+        description: `The department "${createdDepartment.name}" has been created successfully with ID ${createdDepartment.id}`,
+      })
+    } catch (error) {
+      console.error("Error creating department:", error)
+      toast({
+        title: "Error",
+        description: "An error occurred while creating the department. Please check the console for details.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Handle edit department
@@ -188,10 +308,10 @@ export default function DepartmentsPage() {
 
   // Handle update department
   const handleUpdateDepartment = () => {
-    if (!newDepartment.name || !newDepartment.manager || !newDepartment.company) {
+    if (!newDepartment.name || !newDepartment.manager) {
       toast({
-        title: "خطأ",
-        description: "يرجى ملء جميع الحقول المطلوبة",
+        title: "Error",
+        description: "Please fill in all required fields",
         variant: "destructive",
       })
       return
@@ -204,7 +324,6 @@ export default function DepartmentsPage() {
             name: newDepartment.name,
             description: newDepartment.description,
             manager: newDepartment.manager,
-            company: newDepartment.company,
           }
         : dept,
     )
@@ -216,12 +335,14 @@ export default function DepartmentsPage() {
       name: "",
       description: "",
       manager: "",
-      company: "",
+      company: userCompanyName,
+      budget: "0",
+      companyId: userCompanyId,
     })
 
     toast({
-      title: "تم تحديث القسم",
-      description: "تم تحديث معلومات القسم بنجاح",
+      title: "Department Updated",
+      description: "Department information has been updated successfully",
     })
   }
 
@@ -239,8 +360,8 @@ export default function DepartmentsPage() {
   const handleUpdateManager = () => {
     if (!newDepartment.manager) {
       toast({
-        title: "خطأ",
-        description: "يرجى اختيار مدير للقسم",
+        title: "Error",
+        description: "Please select a manager for the department",
         variant: "destructive",
       })
       return
@@ -262,12 +383,14 @@ export default function DepartmentsPage() {
       name: "",
       description: "",
       manager: "",
-      company: "",
+      company: userCompanyName,
+      budget: "0",
+      companyId: userCompanyId,
     })
 
     toast({
-      title: "تم تغيير مدير القسم",
-      description: "تم تغيير مدير القسم بنجاح",
+      title: "Manager Changed",
+      description: "Department manager has been changed successfully",
     })
   }
 
@@ -275,8 +398,8 @@ export default function DepartmentsPage() {
   const handleDeleteDepartment = (id: number) => {
     setDepartments(departments.filter((dept) => dept.id !== id))
     toast({
-      title: "تم حذف القسم",
-      description: "تم حذف القسم بنجاح",
+      title: "Department Deleted",
+      description: "Department has been deleted successfully",
     })
   }
 
@@ -284,64 +407,61 @@ export default function DepartmentsPage() {
     <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">الأقسام</h1>
-          <p className="text-muted-foreground">إدارة أقسام المؤسسة ومدراء الأقسام</p>
+          <h1 className="text-2xl font-bold tracking-tight">Departments</h1>
+          <p className="text-muted-foreground">Manage organization departments and department managers</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-1">
               <Plus className="h-4 w-4" />
-              إضافة قسم
+              Add Department
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>إضافة قسم جديد</DialogTitle>
-              <DialogDescription>أدخل معلومات القسم الجديد</DialogDescription>
+              <DialogTitle>Add New Department</DialogTitle>
+              <DialogDescription>Enter new department information</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">اسم القسم</Label>
+                <Label htmlFor="name">Department Name</Label>
                 <Input
                   id="name"
                   name="name"
                   value={newDepartment.name}
                   onChange={handleInputChange}
-                  placeholder="أدخل اسم القسم"
+                  placeholder="Enter department name"
                   required
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="description">وصف القسم</Label>
+                <Label htmlFor="description">Department Description</Label>
                 <Textarea
                   id="description"
                   name="description"
                   value={newDepartment.description}
                   onChange={handleInputChange}
-                  placeholder="أدخل وصف القسم"
+                  placeholder="Enter department description"
                   rows={3}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="company">الشركة</Label>
-                <Select value={newDepartment.company} onValueChange={(value) => handleSelectChange("company", value)}>
-                  <SelectTrigger id="company">
-                    <SelectValue placeholder="اختر الشركة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((company) => (
-                      <SelectItem key={company.id} value={company.name}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="budget">Budget</Label>
+                <Input
+                  id="budget"
+                  name="budget"
+                  type="number"
+                  value={newDepartment.budget}
+                  onChange={handleInputChange}
+                  placeholder="Enter department budget"
+                  required
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="manager">مدير القسم</Label>
+                <Label htmlFor="manager">Department Manager</Label>
                 <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
                   <SelectTrigger id="manager">
-                    <SelectValue placeholder="اختر مدير القسم" />
+                    <SelectValue placeholder="Select department manager" />
                   </SelectTrigger>
                   <SelectContent>
                     {employees.map((employee) => (
@@ -355,9 +475,9 @@ export default function DepartmentsPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                إلغاء
+                Cancel
               </Button>
-              <Button onClick={handleCreateDepartment}>إضافة القسم</Button>
+              <Button onClick={handleCreateDepartment}>Add Department</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -367,74 +487,63 @@ export default function DepartmentsPage() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="البحث عن قسم..."
+            placeholder="Search for department..."
             className="w-full pl-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline">تصفية</Button>
+        <Button variant="outline">Filter</Button>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي الأقسام</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Departments</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{departments.length}</div>
-            <p className="text-xs text-muted-foreground">في جميع الشركات</p>
+            <p className="text-xs text-muted-foreground">In your company</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">إجمالي الموظفين</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{departments.reduce((sum, dept) => sum + dept.employeeCount, 0)}</div>
-            <p className="text-xs text-muted-foreground">في جميع الأقسام</p>
+            <p className="text-xs text-muted-foreground">Across all departments</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">متوسط حجم القسم</CardTitle>
+            <CardTitle className="text-sm font-medium">Average Department Size</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {Math.round(departments.reduce((sum, dept) => sum + dept.employeeCount, 0) / departments.length)}
             </div>
-            <p className="text-xs text-muted-foreground">موظف لكل قسم</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">الشركات</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{new Set(departments.map((dept) => dept.company)).size}</div>
-            <p className="text-xs text-muted-foreground">لديها أقسام</p>
+            <p className="text-xs text-muted-foreground">Employees per department</p>
           </CardContent>
         </Card>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>الأقسام</CardTitle>
-          <CardDescription>قائمة بجميع الأقسام في المؤسسة</CardDescription>
+          <CardTitle>Departments</CardTitle>
+          <CardDescription>List of all departments in the organization</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>اسم القسم</TableHead>
-                <TableHead>الوصف</TableHead>
-                <TableHead>مدير القسم</TableHead>
-                <TableHead>الشركة</TableHead>
-                <TableHead className="text-right">عدد الموظفين</TableHead>
-                <TableHead className="text-right">تاريخ الإنشاء</TableHead>
-                <TableHead className="text-right">الإجراءات</TableHead>
+                <TableHead>Department Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Department Manager</TableHead>
+                <TableHead className="text-right">Employee Count</TableHead>
+                <TableHead className="text-right">Creation Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -443,32 +552,37 @@ export default function DepartmentsPage() {
                   <TableCell className="font-medium">{department.name}</TableCell>
                   <TableCell>{department.description}</TableCell>
                   <TableCell>{department.manager}</TableCell>
-                  <TableCell>{department.company}</TableCell>
                   <TableCell className="text-right">{department.employeeCount}</TableCell>
-                  <TableCell className="text-right">{department.createdAt.toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    {new Date(department.createdAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
                           <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">الإجراءات</span>
+                          <span className="sr-only">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleEditDepartment(department)}>
-                          تعديل القسم
+                          Edit Department
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleChangeManager(department)}>
-                          تغيير مدير القسم
+                          Change Department Manager
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-red-600"
                           onClick={() => handleDeleteDepartment(department.id)}
                         >
-                          حذف القسم
+                          Delete Department
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -484,52 +598,37 @@ export default function DepartmentsPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>تعديل القسم</DialogTitle>
-            <DialogDescription>تعديل معلومات القسم</DialogDescription>
+            <DialogTitle>Edit Department</DialogTitle>
+            <DialogDescription>Edit department information</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">اسم القسم</Label>
+              <Label htmlFor="edit-name">Department Name</Label>
               <Input
                 id="edit-name"
                 name="name"
                 value={newDepartment.name}
                 onChange={handleInputChange}
-                placeholder="أدخل اسم القسم"
+                placeholder="Enter department name"
                 required
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-description">وصف القسم</Label>
+              <Label htmlFor="edit-description">Department Description</Label>
               <Textarea
                 id="edit-description"
                 name="description"
                 value={newDepartment.description}
                 onChange={handleInputChange}
-                placeholder="أدخل وصف القسم"
+                placeholder="Enter department description"
                 rows={3}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-company">الشركة</Label>
-              <Select value={newDepartment.company} onValueChange={(value) => handleSelectChange("company", value)}>
-                <SelectTrigger id="edit-company">
-                  <SelectValue placeholder="اختر الشركة" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map((company) => (
-                    <SelectItem key={company.id} value={company.name}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-manager">مدير القسم</Label>
+              <Label htmlFor="edit-manager">Department Manager</Label>
               <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
                 <SelectTrigger id="edit-manager">
-                  <SelectValue placeholder="اختر مدير القسم" />
+                  <SelectValue placeholder="Select department manager" />
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map((employee) => (
@@ -543,9 +642,9 @@ export default function DepartmentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              إلغاء
+              Cancel
             </Button>
-            <Button onClick={handleUpdateDepartment}>حفظ التغييرات</Button>
+            <Button onClick={handleUpdateDepartment}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -554,22 +653,22 @@ export default function DepartmentsPage() {
       <Dialog open={isChangeManagerDialogOpen} onOpenChange={setIsChangeManagerDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>تغيير مدير القسم</DialogTitle>
-            <DialogDescription>تغيير مدير قسم {currentDepartment?.name}</DialogDescription>
+            <DialogTitle>Change Department Manager</DialogTitle>
+            <DialogDescription>Change manager for {currentDepartment?.name} department</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="flex items-center gap-4 p-4 rounded-lg bg-muted">
               <UserCog className="h-10 w-10 text-primary" />
               <div>
-                <h3 className="font-medium">المدير الحالي</h3>
+                <h3 className="font-medium">Current Manager</h3>
                 <p className="text-sm text-muted-foreground">{currentDepartment?.manager}</p>
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="new-manager">المدير الجديد</Label>
+              <Label htmlFor="new-manager">New Manager</Label>
               <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
                 <SelectTrigger id="new-manager">
-                  <SelectValue placeholder="اختر مدير القسم الجديد" />
+                  <SelectValue placeholder="Select new department manager" />
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map((employee) => (
@@ -583,9 +682,9 @@ export default function DepartmentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsChangeManagerDialogOpen(false)}>
-              إلغاء
+              Cancel
             </Button>
-            <Button onClick={handleUpdateManager}>تغيير المدير</Button>
+            <Button onClick={handleUpdateManager}>Change Manager</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
