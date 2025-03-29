@@ -7,7 +7,7 @@ import type { User } from "@/services/auth"
 // Define auth context type
 type AuthContextType = {
   user: User | null
-  login: (username: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
   isLoading: boolean
 }
@@ -44,38 +44,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Redirect based on auth status
-  // تعديل آلية التوجيه بناءً على حالة المصادقة
   useEffect(() => {
-    if (isLoading) return // لا تقم بأي توجيه أثناء التحميل
+    if (isLoading) return // Don't redirect while loading
 
-    // تخزين المسار الحالي للرجوع إليه بعد تسجيل الدخول
+    // Store current path to return to after login
     const currentPath = pathname || "/"
 
-    // إذا كان المستخدم غير مسجل الدخول ويحاول الوصول إلى صفحة محمية
+    // If user is not logged in and trying to access a protected page
     if (!user && currentPath.startsWith("/dashboard")) {
-      // تخزين المسار المطلوب في localStorage للعودة إليه بعد تسجيل الدخول
+      // Store requested path in localStorage to return after login
       localStorage.setItem("authRedirectPath", currentPath)
       router.push("/login")
       return
     }
 
-    // إذا كان المستخدم مسجل الدخول ويحاول الوصول إلى صفحة تسجيل الدخول أو التسجيل
+    // If user is logged in and trying to access login or register page
     if (user && (currentPath === "/login" || currentPath === "/register" || currentPath.startsWith("/register/"))) {
-      // التحقق من وجود مسار محفوظ للعودة إليه
+      // Check for a saved path to return to
       const redirectPath = localStorage.getItem("authRedirectPath") || "/dashboard"
-      localStorage.removeItem("authRedirectPath") // مسح المسار المحفوظ بعد استخدامه
+      localStorage.removeItem("authRedirectPath") // Clear saved path after using it
       router.push(redirectPath)
       return
     }
   }, [user, isLoading, pathname, router])
 
-  // تعديل وظيفة تسجيل الدخول لمعالجة الاستجابة بالشكل الصحيح
   // Login function
-  // تعديل وظيفة تسجيل الدخول
   const login = async (username: string, password: string) => {
     setIsLoading(true)
 
     try {
+      // Validate inputs
+      if (!username.trim()) {
+        return { success: false, error: "Username is required" }
+      }
+
+      if (!password.trim()) {
+        return { success: false, error: "Password is required" }
+      }
+
       // Use the internal API endpoint instead of direct endpoint
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -88,16 +94,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Login failed")
-      }
-
       const data = await response.json()
 
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || "Login failed",
+        }
+      }
+
       // Validate that we have a user object with required fields
-      if (!data.user || !data.user.role) {
-        throw new Error("Invalid user data received from server")
+      if (!data.user) {
+        return {
+          success: false,
+          error: "Invalid user data received",
+        }
       }
 
       // Store user info in localStorage
@@ -113,10 +124,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("authRedirectPath") // Clear the saved path after using it
 
       router.push(redirectPath)
-      return { user: data.user }
-    } catch (error) {
+      return { success: true, user: data.user }
+    } catch (error: any) {
       console.error("Login error:", error)
-      throw error
+      return {
+        success: false,
+        error: error.message || "An error occurred while trying to log in",
+      }
     } finally {
       setIsLoading(false)
     }
@@ -125,19 +139,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Logout function
   const logout = () => {
     try {
-      // إزالة بيانات المستخدم من التخزين المحلي
+      // Remove user data from localStorage
       localStorage.removeItem("user")
+      localStorage.removeItem("token")
 
-      // تحديث حالة المستخدم إلى null
+      // Update user state to null
       setUser(null)
 
-      // إعادة توجيه المستخدم إلى صفحة تسجيل الدخول
+      // Redirect user to login page
       router.push("/login")
     } catch (error) {
       console.error("Logout error:", error)
 
-      // حتى في حالة حدوث خطأ، نقوم بإزالة بيانات المستخدم وإعادة التوجيه
+      // Even in case of error, remove user data and redirect
       localStorage.removeItem("user")
+      localStorage.removeItem("token")
       setUser(null)
       router.push("/login")
     }

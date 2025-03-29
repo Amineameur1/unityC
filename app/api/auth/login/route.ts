@@ -5,6 +5,11 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log("Login request body:", body)
 
+    // Check if username and password are provided
+    if (!body.username || !body.password) {
+      return NextResponse.json({ error: "Username and password are required" }, { status: 400 })
+    }
+
     // Try to forward the request to the local server
     try {
       console.log("Forwarding login request to http://localhost:5001/api/v1/auth/login")
@@ -21,6 +26,14 @@ export async function POST(request: Request) {
       if (!response.ok) {
         const errorData = await response.json()
         console.error("Login error from API:", errorData)
+
+        // Improve error messages
+        if (response.status === 401) {
+          return NextResponse.json({ error: "Invalid username or password" }, { status: 401 })
+        } else if (response.status === 403) {
+          return NextResponse.json({ error: "Your account is inactive or has been suspended" }, { status: 403 })
+        }
+
         return NextResponse.json({ error: errorData.message || "Login failed" }, { status: response.status })
       }
 
@@ -30,19 +43,25 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error("Error forwarding to local API:", error)
 
-      // If the connection to the local server fails, return a fallback response
-      // Use the exact format provided by the user
-      return NextResponse.json({
-        user: {
-          employee: 7,
-          company: 6,
-          department: null,
-          role: "Owner",
-          username: body.username || "johnئdoe",
-        },
-        message: "Login successful",
-        token: "mock-jwt-token-" + Math.random().toString(36).substring(2),
-      })
+      // Simulate credential validation when local server is not available
+      if (body.username === "test" && body.password === "test") {
+        // If the connection to the local server fails, return a fallback response
+        // Use the exact format provided by the user
+        return NextResponse.json({
+          user: {
+            employee: 7,
+            company: 6,
+            department: null,
+            role: "Owner",
+            username: body.username || "johnئdoe",
+          },
+          message: "Login successful",
+          token: "mock-jwt-token-" + Math.random().toString(36).substring(2),
+        })
+      } else {
+        // If credentials are invalid
+        return NextResponse.json({ error: "Invalid username or password" }, { status: 401 })
+      }
     }
   } catch (error: any) {
     console.error("Login error:", error)
