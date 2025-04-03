@@ -28,9 +28,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MoreHorizontal, Plus, Search, Users, Building2, UserCog } from "lucide-react"
+import { MoreHorizontal, Plus, Search, Users, Building2, UserCog, AlertTriangle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
+import { Switch } from "@/components/ui/switch"
 
 // Sample department data
 const initialDepartments = [
@@ -110,6 +111,8 @@ export default function DepartmentsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isChangeManagerDialogOpen, setIsChangeManagerDialogOpen] = useState(false)
   const [currentDepartment, setCurrentDepartment] = useState<any>(null)
+  const [useMockData, setUseMockData] = useState(true) // إضافة حالة للتبديل بين البيانات الوهمية والفعلية
+  const [apiError, setApiError] = useState<string | null>(null) // إضافة حالة لتخزين رسائل الخطأ
   const { toast } = useToast()
   const { user } = useAuth() // Get the authenticated user
 
@@ -146,41 +149,67 @@ export default function DepartmentsPage() {
     }))
   }
 
+  // Replace the existing useEffect for fetching departments with this new implementation:
+
   useEffect(() => {
-    // Function to fetch departments from the API
     const fetchDepartments = async () => {
+      // If mock data is enabled, don't try to connect to API
+      if (useMockData) {
+        console.log("Using mock data")
+        setApiError(null)
+        return
+      }
+
+      setApiError(null) // Reset error state before attempting connection
+
       try {
-        const response = await fetch("http://localhost:5001/api/v1/department/")
+        const response = await fetch("http://localhost:5001/api/v1/department/", {
+          method: "GET",
+          credentials: "include", // This sends cookies with the request
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
 
         if (!response.ok) {
-          throw new Error(`API error: ${response.status}`)
+          throw new Error(`خطأ في API: ${response.status}`)
         }
 
         const data = await response.json()
-        console.log("Fetched departments:", data)
+        console.log("الأقسام التي تم جلبها:", data)
 
-        // If the API returns an array of departments, map them to our format
+        // إذا كان API يعيد مصفوفة من الأقسام، قم بتنسيقها إلى التنسيق المطلوب
         if (Array.isArray(data)) {
           const formattedDepartments = data.map((dept) => ({
             id: dept.id,
             name: dept.name,
-            description: dept.description || "No description available",
-            manager: dept.manager || "Not assigned",
+            description: dept.description || "لا يوجد وصف متاح",
+            manager: dept.manager || "غير معين",
             employeeCount: dept.employeeCount || 0,
             company: userCompanyName,
             companyId: dept.companyId,
-            budget: Number.parseInt(dept.budget || "0"),
+            budget: Number.parseInt(dept.budget) || 0,
             createdAt: new Date(dept.createdAt),
           }))
 
+          // Set the departments state with the formatted data
           setDepartments(formattedDepartments)
+          console.log("Formatted Departments:", formattedDepartments)
         }
       } catch (error) {
         console.error("Error fetching departments:", error)
-        // Keep using the initial departments data if the API call fails
+
+        // Store error message to display in UI
+        if (error instanceof Error) {
+          setApiError(error.message)
+        } else {
+          setApiError("Unknown error occurred while connecting to server")
+        }
+
+        // Show warning message
         toast({
-          title: "Warning",
-          description: "Could not fetch departments from the API. Using sample data instead.",
+          title: "Failed to connect to server",
+          description: "Could not fetch departments from API. Using sample data instead.",
           variant: "destructive",
         })
       }
@@ -188,7 +217,7 @@ export default function DepartmentsPage() {
 
     // Call the function
     fetchDepartments()
-  }, [userCompanyName]) // Re-fetch if the company name changes
+  }, [userCompanyName, useMockData, toast]) // Add useMockData as dependency
 
   // Filter departments based on search query and user's company
   const filteredDepartments = departments.filter((department) => {
@@ -213,33 +242,66 @@ export default function DepartmentsPage() {
     }
   })
 
-  // Update the handleCreateDepartment function to use the real API endpoint
-
-  // Replace the existing handleCreateDepartment function with this implementation:
+  // تحديث وظيفة إنشاء قسم جديد
   const handleCreateDepartment = async () => {
     if (!newDepartment.name || !newDepartment.budget) {
       toast({
-        title: "Error",
-        description: "Please fill in all required fields",
+        title: "خطأ",
+        description: "يرجى ملء جميع الحقول المطلوبة",
         variant: "destructive",
       })
       return
     }
 
-    // Validate budget is a number
+    // التحقق من أن الميزانية رقم
     if (!/^\d+$/.test(newDepartment.budget)) {
       toast({
-        title: "Error",
-        description: "Budget must be a valid number",
+        title: "خطأ",
+        description: "يجب أن تكون الميزانية رقمًا صحيحًا",
         variant: "destructive",
       })
       return
     }
 
+    // إذا كان استخدام البيانات الوهمية مفعل، أضف قسم وهمي
+    if (useMockData) {
+      const newId = Math.max(...departments.map((dept) => dept.id)) + 1
+      const departmentToAdd = {
+        id: newId,
+        name: newDepartment.name,
+        description: newDepartment.description || "",
+        manager: newDepartment.manager || "غير معين",
+        employeeCount: 0,
+        company: userCompanyName,
+        companyId: userCompanyId,
+        budget: Number.parseInt(newDepartment.budget),
+        createdAt: new Date(),
+      }
+
+      setDepartments([...departments, departmentToAdd])
+      setNewDepartment({
+        name: "",
+        description: "",
+        manager: "",
+        company: userCompanyName,
+        budget: "0",
+        companyId: userCompanyId,
+      })
+      setIsCreateDialogOpen(false)
+
+      toast({
+        title: "تم إنشاء القسم",
+        description: `تم إنشاء القسم "${departmentToAdd.name}" بنجاح (وضع المحاكاة)`,
+      })
+
+      return
+    }
+
+    // محاولة إنشاء قسم جديد عبر API
     try {
-      // Make the API call to create a department
       const response = await fetch("http://localhost:5001/api/v1/department/", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -250,18 +312,17 @@ export default function DepartmentsPage() {
       })
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(`خطأ في API: ${response.status} - ${response.statusText}`)
       }
 
       const createdDepartment = await response.json()
-      console.log("Created department:", createdDepartment)
+      console.log("تم إنشاء القسم:", createdDepartment)
 
-      // Add the new department to the state with the format expected by our UI
       const departmentToAdd = {
         id: createdDepartment.id,
         name: createdDepartment.name,
         description: newDepartment.description || "",
-        manager: newDepartment.manager || "Not assigned",
+        manager: newDepartment.manager || "غير معين",
         employeeCount: 0,
         company: userCompanyName,
         companyId: createdDepartment.companyId,
@@ -281,16 +342,26 @@ export default function DepartmentsPage() {
       setIsCreateDialogOpen(false)
 
       toast({
-        title: "Department Created",
-        description: `The department "${createdDepartment.name}" has been created successfully with ID ${createdDepartment.id}`,
+        title: "تم إنشاء القسم",
+        description: `تم إنشاء القسم "${createdDepartment.name}" بنجاح برقم معرف ${createdDepartment.id}`,
       })
     } catch (error) {
-      console.error("Error creating department:", error)
-      toast({
-        title: "Error",
-        description: "An error occurred while creating the department. Please check the console for details.",
-        variant: "destructive",
-      })
+      console.error("خطأ في إنشاء القسم:", error)
+
+      // عرض رسالة خطأ أكثر تفصيلاً
+      if (error instanceof Error) {
+        toast({
+          title: "خطأ",
+          description: `حدث خطأ أثناء إنشاء القسم: ${error.message}`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "خطأ",
+          description: "حدث خطأ غير معروف أثناء إنشاء القسم",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -410,78 +481,103 @@ export default function DepartmentsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Departments</h1>
           <p className="text-muted-foreground">Manage organization departments and department managers</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Department
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Department</DialogTitle>
-              <DialogDescription>Enter new department information</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Department Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={newDepartment.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter department name"
-                  required
-                />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch id="use-mock-data" checked={useMockData} onCheckedChange={setUseMockData} />
+            <Label htmlFor="use-mock-data">Use Mock Data</Label>
+          </div>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-1">
+                <Plus className="h-4 w-4" />
+                Add Department
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Department</DialogTitle>
+                <DialogDescription>Enter new department information</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Department Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={newDepartment.name}
+                    onChange={handleInputChange}
+                    placeholder="Enter department name"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Department Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={newDepartment.description}
+                    onChange={handleInputChange}
+                    placeholder="Enter department description"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="budget">Budget</Label>
+                  <Input
+                    id="budget"
+                    name="budget"
+                    type="number"
+                    value={newDepartment.budget}
+                    onChange={handleInputChange}
+                    placeholder="Enter department budget"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="manager">Department Manager</Label>
+                  <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
+                    <SelectTrigger id="manager">
+                      <SelectValue placeholder="Select department manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.name}>
+                          {employee.name} - {employee.position}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Department Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={newDepartment.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter department description"
-                  rows={3}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="budget">Budget</Label>
-                <Input
-                  id="budget"
-                  name="budget"
-                  type="number"
-                  value={newDepartment.budget}
-                  onChange={handleInputChange}
-                  placeholder="Enter department budget"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="manager">Department Manager</Label>
-                <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
-                  <SelectTrigger id="manager">
-                    <SelectValue placeholder="Select department manager" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.name}>
-                        {employee.name} - {employee.position}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateDepartment}>Add Department</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* عرض رسالة الخطأ إذا كانت موجودة */}
+      {apiError && !useMockData && (
+        <Card className="border-red-300 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <div>
+                <h3 className="font-medium text-red-800">API Connection Error</h3>
+                <p className="text-sm text-red-600">{apiError}</p>
+                <p className="text-sm text-red-600 mt-1">
+                  Using mock data instead. Toggle "Use Mock Data" to hide this message.
+                </p>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateDepartment}>Add Department</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -523,7 +619,9 @@ export default function DepartmentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.round(departments.reduce((sum, dept) => sum + dept.employeeCount, 0) / departments.length)}
+              {departments.length > 0
+                ? Math.round(departments.reduce((sum, dept) => sum + dept.employeeCount, 0) / departments.length)
+                : 0}
             </div>
             <p className="text-xs text-muted-foreground">Employees per department</p>
           </CardContent>
@@ -547,48 +645,56 @@ export default function DepartmentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredDepartments.map((department) => (
-                <TableRow key={department.id}>
-                  <TableCell className="font-medium">{department.name}</TableCell>
-                  <TableCell>{department.description}</TableCell>
-                  <TableCell>{department.manager}</TableCell>
-                  <TableCell className="text-right">{department.employeeCount}</TableCell>
-                  <TableCell className="text-right">
-                    {new Date(department.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "2-digit",
-                      day: "2-digit",
-                    })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleEditDepartment(department)}>
-                          Edit Department
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleChangeManager(department)}>
-                          Change Department Manager
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => handleDeleteDepartment(department.id)}
-                        >
-                          Delete Department
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {filteredDepartments.length > 0 ? (
+                filteredDepartments.map((department) => (
+                  <TableRow key={department.id}>
+                    <TableCell className="font-medium">{department.name}</TableCell>
+                    <TableCell>{department.description}</TableCell>
+                    <TableCell>{department.manager}</TableCell>
+                    <TableCell className="text-right">{department.employeeCount}</TableCell>
+                    <TableCell className="text-right">
+                      {new Date(department.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEditDepartment(department)}>
+                            Edit Department
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleChangeManager(department)}>
+                            Change Department Manager
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleDeleteDepartment(department.id)}
+                          >
+                            Delete Department
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No departments found
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>

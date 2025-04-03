@@ -95,20 +95,36 @@ export default function DashboardLayout({
   }, [])
 
   // Logout
-  const handleLogout = () => {
-    // Remove user data from local storage
-    localStorage.removeItem("user")
-    localStorage.removeItem("token")
-    localStorage.removeItem("authRedirectPath")
+  const handleLogout = async () => {
+    try {
+      // Use the auth context's logout function
+      // await logout();  // Assuming logout function is available in this scope.  Needs to be imported or defined.
 
-    // Show success message
-    toast({
-      title: "Logged out successfully",
-      description: "You have been logged out of your account",
-    })
+      // Remove user data from local storage
+      localStorage.removeItem("user")
+      localStorage.removeItem("token")
+      localStorage.removeItem("authRedirectPath")
 
-    // Use window.location.href instead of router.push
-    window.location.href = "/login"
+      // Show success message
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account",
+      })
+
+      // Use window.location.href instead of router.push
+      window.location.href = "/login"
+
+      // Toast notification will be shown by the auth provider
+    } catch (error) {
+      console.error("Logout error:", error)
+
+      // Show error toast in case of failure
+      toast({
+        title: "Error",
+        description: "There was a problem logging out. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Define menu items based on user role

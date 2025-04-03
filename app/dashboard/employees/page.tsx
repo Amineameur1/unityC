@@ -26,112 +26,123 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MoreHorizontal, Plus, Search, Users } from "lucide-react"
+import { MoreHorizontal, Plus, Search, Users, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/components/auth-provider"
 
-// Sample employee data for initial state
-const initialEmployees = [
-  {
-    id: 1,
-    name: "John Smith",
-    email: "john.smith@example.com",
-    department: "Engineering",
-    role: "Software Engineer",
-    company: "Acme Corporation",
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Sarah Johnson",
-    email: "sarah.johnson@example.com",
-    department: "Marketing",
-    role: "Marketing Manager",
-    company: "Acme Corporation",
-    status: "Active",
-  },
-  {
-    id: 3,
-    name: "Michael Brown",
-    email: "michael.brown@example.com",
-    department: "Finance",
-    role: "Financial Analyst",
-    company: "Globex Industries",
-    status: "Active",
-  },
-  {
-    id: 4,
-    name: "Emily Davis",
-    email: "emily.davis@example.com",
-    department: "Human Resources",
-    role: "HR Specialist",
-    company: "Initech Solutions",
-    status: "Active",
-  },
-  {
-    id: 5,
-    name: "David Wilson",
-    email: "david.wilson@example.com",
-    department: "Engineering",
-    role: "Lead Developer",
-    company: "Umbrella Corporation",
-    status: "Active",
-  },
-  {
-    id: 6,
-    name: "Jessica Martinez",
-    email: "jessica.martinez@example.com",
-    department: "Sales",
-    role: "Sales Representative",
-    company: "Stark Industries",
-    status: "Active",
-  },
-  {
-    id: 7,
-    name: "Robert Taylor",
-    email: "robert.taylor@example.com",
-    department: "Product",
-    role: "Product Manager",
-    company: "Wayne Enterprises",
-    status: "Inactive",
-  },
-  {
-    id: 8,
-    name: "Jennifer Anderson",
-    email: "jennifer.anderson@example.com",
-    department: "Customer Support",
-    role: "Support Specialist",
-    company: "Cyberdyne Systems",
-    status: "Active",
-  },
-]
+// Interface for employee data
+interface Employee {
+  id: number
+  uuid: string
+  firstName: string
+  lastName: string
+  email: string
+  departmentId: number | null
+  companyId: number
+  jobTitle: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  department: {
+    id: number
+    uuid: string
+    name: string
+    companyId: number
+    parentDepartmentId: number | null
+    budget: string
+    createdAt: string
+    updatedAt: string
+  } | null
+  company: {
+    id: number
+    uuid: string
+    name: string
+    address: string
+    contactEmail: string
+    createdAt: string
+    updatedAt: string
+  }
+}
+
+// Interface for API response
+interface EmployeeResponse {
+  employees: Employee[]
+  total: number
+  page: number
+  limit: number
+}
 
 export default function EmployeesPage() {
-  const [employees, setEmployees] = useState(initialEmployees)
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [newEmployee, setNewEmployee] = useState({
     firstName: "",
     lastName: "",
     email: "",
     departmentId: "",
-    companyId: "6", // Default company ID from the example
+    companyId: "",
     jobTitle: "",
     role: "Employee", // Default role
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isFetching, setIsFetching] = useState(false)
   const [departments, setDepartments] = useState([])
   const { toast } = useToast()
+  const { user } = useAuth() // Get the authenticated user
+
+  // Get the user's company ID
+  const userCompanyId = user?.company || 6 // Default to company ID 6 if not available
+
+  // Fetch employees for the user's company
+  const fetchEmployees = async () => {
+    setIsFetching(true)
+    try {
+      // Use the internal API endpoint instead of direct endpoint
+      const response = await fetch(`/api/employees?companyId=${userCompanyId}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch employees: ${response.status}`)
+      }
+
+      const data: EmployeeResponse = await response.json()
+      setEmployees(data.employees || [])
+
+      toast({
+        title: "Employees loaded",
+        description: `Successfully loaded ${data.total} employees`,
+      })
+    } catch (error) {
+      console.error("Error fetching employees:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load employees. Please try again later.",
+        variant: "destructive",
+      })
+
+      // Set empty array if fetch fails
+      setEmployees([])
+    } finally {
+      setIsLoading(false)
+      setIsFetching(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEmployees()
+  }, [userCompanyId, toast])
 
   // Fetch departments for the dropdown
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await fetch("http://localhost:5001/api/v1/department")
+        // Use the internal API endpoint instead of direct endpoint
+        const response = await fetch(`/api/departments?companyId=${userCompanyId}`)
         if (!response.ok) {
           throw new Error("Failed to fetch departments")
         }
         const data = await response.json()
-        setDepartments(data)
+        setDepartments(data.departments || [])
       } catch (error) {
         console.error("Error fetching departments:", error)
         toast({
@@ -143,15 +154,15 @@ export default function EmployeesPage() {
     }
 
     fetchDepartments()
-  }, [toast])
+  }, [userCompanyId, toast])
 
   const filteredEmployees = employees.filter(
     (employee) =>
-      employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      employee.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      employee.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      employee.company?.toLowerCase().includes(searchQuery.toLowerCase()),
+      employee.jobTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      employee.department?.name?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,15 +183,15 @@ export default function EmployeesPage() {
           firstName: newEmployee.firstName,
           lastName: newEmployee.lastName,
           email: newEmployee.email,
-          departmentId: newEmployee.departmentId,
-          companyId: newEmployee.companyId,
+          departmentId: newEmployee.departmentId ? Number.parseInt(newEmployee.departmentId) : null,
+          companyId: userCompanyId,
           jobTitle: newEmployee.jobTitle,
           role: newEmployee.role,
         },
       }
 
-      // Make the API call
-      const response = await fetch("http://localhost:5001/api/v1/registration/owner/user", {
+      // Make the API call to the internal endpoint
+      const response = await fetch("/api/employees/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -190,24 +201,13 @@ export default function EmployeesPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to create employee")
+        throw new Error(errorData.error || "Failed to create employee")
       }
 
       const data = await response.json()
 
-      // Add the new employee to the state
-      const newEmployeeData = {
-        id: data.id || Date.now(), // Use the ID from the API or generate a temporary one
-        name: `${data.firstName || newEmployee.firstName} ${data.lastName || newEmployee.lastName}`,
-        email: data.email || newEmployee.email,
-        department: departments.find((d) => d.id === Number.parseInt(newEmployee.departmentId))?.name || "Unknown",
-        role: data.role || newEmployee.role,
-        jobTitle: data.jobTitle || newEmployee.jobTitle,
-        company: "Your Company", // This could be fetched from the API if available
-        status: "Active",
-      }
-
-      setEmployees([...employees, newEmployeeData])
+      // Refresh the employee list
+      await fetchEmployees()
 
       // Reset the form
       setNewEmployee({
@@ -215,7 +215,7 @@ export default function EmployeesPage() {
         lastName: "",
         email: "",
         departmentId: "",
-        companyId: "6",
+        companyId: userCompanyId.toString(),
         jobTitle: "",
         role: "Employee",
       })
@@ -226,7 +226,7 @@ export default function EmployeesPage() {
       })
 
       setIsDialogOpen(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating employee:", error)
       toast({
         title: "Error",
@@ -301,7 +301,7 @@ export default function EmployeesPage() {
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((department) => (
+                    {departments.map((department: any) => (
                       <SelectItem key={department.id} value={department.id.toString()}>
                         {department.name}
                       </SelectItem>
@@ -326,8 +326,8 @@ export default function EmployeesPage() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Owner">Owner</SelectItem>
                     <SelectItem value="Admin">Admin</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
                     <SelectItem value="Employee">Employee</SelectItem>
                   </SelectContent>
                 </Select>
@@ -338,7 +338,14 @@ export default function EmployeesPage() {
                 Cancel
               </Button>
               <Button onClick={handleAddEmployee} disabled={isLoading}>
-                {isLoading ? "Creating..." : "Add Employee"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Add Employee"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -365,9 +372,7 @@ export default function EmployeesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{employees.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {employees.filter((e) => e.status === "Active").length} active
-            </p>
+            <p className="text-xs text-muted-foreground">{employees.filter((e) => e.isActive).length} active</p>
           </CardContent>
         </Card>
         <Card>
@@ -391,12 +396,12 @@ export default function EmployeesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{departments.length}</div>
-            <p className="text-xs text-muted-foreground">Across all companies</p>
+            <p className="text-xs text-muted-foreground">Across the company</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Companies</CardTitle>
+            <CardTitle className="text-sm font-medium">Company</CardTitle>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -416,8 +421,8 @@ export default function EmployeesPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1</div>
-            <p className="text-xs text-muted-foreground">With active employees</p>
+            <div className="text-2xl font-bold">{employees.length > 0 ? employees[0].company.name : "Loading..."}</div>
+            <p className="text-xs text-muted-foreground">Company name</p>
           </CardContent>
         </Card>
         <Card>
@@ -441,7 +446,7 @@ export default function EmployeesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">Admin, Manager, Employee</p>
+            <p className="text-xs text-muted-foreground">Owner, Admin, Employee</p>
           </CardContent>
         </Card>
       </div>
@@ -451,62 +456,77 @@ export default function EmployeesPage() {
           <CardDescription>A list of all employees in your organization.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Job Title</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEmployees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-medium">{employee.name}</TableCell>
-                  <TableCell>{employee.email}</TableCell>
-                  <TableCell>{employee.department}</TableCell>
-                  <TableCell>{employee.jobTitle || employee.role}</TableCell>
-                  <TableCell>{employee.role}</TableCell>
-                  <TableCell>
-                    <div
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        employee.status === "Active"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                      }`}
-                    >
-                      {employee.status}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>View Profile</DropdownMenuItem>
-                        <DropdownMenuItem>Edit Details</DropdownMenuItem>
-                        <DropdownMenuItem>Assign Tasks</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                          {employee.status === "Active" ? "Deactivate" : "Activate"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading employees...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Job Title</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredEmployees.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No employees found. Add your first employee using the "Add Employee" button.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredEmployees.map((employee) => (
+                    <TableRow key={employee.id}>
+                      <TableCell className="font-medium">
+                        {employee.firstName} {employee.lastName}
+                      </TableCell>
+                      <TableCell>{employee.email}</TableCell>
+                      <TableCell>{employee.department?.name || "Not Assigned"}</TableCell>
+                      <TableCell>{employee.jobTitle || "Not Specified"}</TableCell>
+                      <TableCell>
+                        <div
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            employee.isActive
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          }`}
+                        >
+                          {employee.isActive ? "Active" : "Inactive"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>View Profile</DropdownMenuItem>
+                            <DropdownMenuItem>Edit Details</DropdownMenuItem>
+                            <DropdownMenuItem>Assign Tasks</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600">
+                              {employee.isActive ? "Deactivate" : "Activate"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

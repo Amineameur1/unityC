@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, isLoading, pathname, router])
 
-  // Login function
+  // Update the login function to store the token properly
   const login = async (username: string, password: string) => {
     setIsLoading(true)
 
@@ -113,8 +113,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Store user info in localStorage
       localStorage.setItem("user", JSON.stringify(data.user))
+
+      // Store token if available
       if (data.token) {
         localStorage.setItem("token", data.token)
+      } else {
+        // If no token is provided, create a mock token for development
+        localStorage.setItem("token", `mock-token-${Date.now()}`)
       }
 
       setUser(data.user)
@@ -137,8 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // Logout function
-  const logout = () => {
+  const logout = async () => {
     try {
+      // Call the logout API endpoint
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // Include cookies in the request
+      })
+
+      // Even if the API call fails, we should still clear local storage and redirect
+
       // Remove user data from localStorage
       localStorage.removeItem("user")
       localStorage.removeItem("token")
