@@ -12,16 +12,21 @@ export async function GET(request: Request) {
 
     // Try to forward the request to the local server
     try {
+      // Get all cookies from the request to forward them
+      const cookies = request.headers.get("cookie") || ""
+
       console.log(`Forwarding employee request to http://localhost:5001/api/v1/employee/company/${companyId}`)
+      console.log(`Forwarding cookies: ${cookies}`)
+
       const response = await fetch(`http://localhost:5001/api/v1/employee/company/${companyId}`, {
+        credentials: "include", // Add credentials include
         headers: {
           "Content-Type": "application/json",
-          // Forward authorization header if present
-          ...(request.headers.get("Authorization")
-            ? { Authorization: request.headers.get("Authorization") as string }
-            : {}),
+          Cookie: cookies, // Forward cookies
         },
       })
+
+      console.log(`Employee API response status: ${response.status}`)
 
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`)

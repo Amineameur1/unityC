@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clipboard, Copy, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 // Sample invite codes data
 const initialInviteCodes = [
@@ -45,6 +47,8 @@ export default function InviteEmployeesPage() {
   })
   const [generatedCode, setGeneratedCode] = useState("")
   const { toast } = useToast()
+  const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false)
+  const [newDepartmentName, setNewDepartmentName] = useState("")
 
   const handleSelectChange = (name: string, value: string) => {
     setNewInvite((prev) => ({ ...prev, [name]: value }))
@@ -114,6 +118,13 @@ export default function InviteEmployeesPage() {
     })
   }
 
+  const handleAddNewDepartment = () => {
+    // Logic to add the new department
+    console.log("Adding new department:", newDepartmentName)
+    setIsAddDepartmentOpen(false)
+    setNewDepartmentName("")
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
       <div className="flex items-center justify-between">
@@ -144,19 +155,48 @@ export default function InviteEmployeesPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Department</Label>
-              <Select value={newInvite.department} onValueChange={(value) => handleSelectChange("department", value)}>
-                <SelectTrigger id="department">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="IT">IT</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
-                  <SelectItem value="Finance">Finance</SelectItem>
-                  <SelectItem value="Sales">Sales</SelectItem>
-                  <SelectItem value="Marketing">Marketing</SelectItem>
-                  <SelectItem value="Customer Support">Customer Support</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center space-x-2">
+                <Select value={newInvite.department} onValueChange={(value) => handleSelectChange("department", value)}>
+                  <SelectTrigger id="department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IT">IT</SelectItem>
+                    <SelectItem value="HR">HR</SelectItem>
+                    <SelectItem value="Finance">Finance</SelectItem>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                    <SelectItem value="Marketing">Marketing</SelectItem>
+                    <SelectItem value="Customer Support">Customer Support</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Dialog open={isAddDepartmentOpen} onOpenChange={setIsAddDepartmentOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Add Department
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Department</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">
+                          Name
+                        </Label>
+                        <Input
+                          id="name"
+                          value={newDepartmentName}
+                          onChange={(e) => setNewDepartmentName(e.target.value)}
+                          className="col-span-3"
+                        />
+                      </div>
+                    </div>
+                    {/* Rest of the content */}
+                    <Button onClick={handleAddNewDepartment}>Add Department</Button>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
             <Button onClick={handleGenerateCode} className="w-full">
               Generate Invite Code

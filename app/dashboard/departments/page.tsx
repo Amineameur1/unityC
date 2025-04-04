@@ -31,7 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MoreHorizontal, Plus, Search, Users, Building2, UserCog, AlertTriangle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { Switch } from "@/components/ui/switch"
+import { fetchWithAuth } from "@/services/api-client"
 
 // Sample department data
 const initialDepartments = [
@@ -111,8 +111,7 @@ export default function DepartmentsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isChangeManagerDialogOpen, setIsChangeManagerDialogOpen] = useState(false)
   const [currentDepartment, setCurrentDepartment] = useState<any>(null)
-  const [useMockData, setUseMockData] = useState(true) // إضافة حالة للتبديل بين البيانات الوهمية والفعلية
-  const [apiError, setApiError] = useState<string | null>(null) // إضافة حالة لتخزين رسائل الخطأ
+  const [apiError, setApiError] = useState<string | null>(null)
   const { toast } = useToast()
   const { user } = useAuth() // Get the authenticated user
 
@@ -129,7 +128,6 @@ export default function DepartmentsPage() {
     manager: "",
     company: userCompanyName,
     budget: "0",
-    companyId: userCompanyId,
   })
 
   // Handle input change for text fields
@@ -149,42 +147,33 @@ export default function DepartmentsPage() {
     }))
   }
 
-  // Replace the existing useEffect for fetching departments with this new implementation:
-
+  // Updated fetchDepartments function using fetchWithAuth
   useEffect(() => {
     const fetchDepartments = async () => {
-      // If mock data is enabled, don't try to connect to API
-      if (useMockData) {
-        console.log("Using mock data")
-        setApiError(null)
-        return
-      }
-
+      // Always try to connect to API first
       setApiError(null) // Reset error state before attempting connection
 
       try {
-        const response = await fetch("http://localhost:5001/api/v1/department/", {
-          method: "GET",
-          credentials: "include", // This sends cookies with the request
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
+        // Use our fetchWithAuth utility to get departments
+        // No need to send companyId, the API will use the authenticated user's company
+        const response = await fetchWithAuth(`/api/departments`)
 
         if (!response.ok) {
-          throw new Error(`خطأ في API: ${response.status}`)
+          throw new Error(`API Error: ${response.status}`)
         }
 
         const data = await response.json()
-        console.log("الأقسام التي تم جلبها:", data)
+        console.log("Fetched departments:", data)
 
-        // إذا كان API يعيد مصفوفة من الأقسام، قم بتنسيقها إلى التنسيق المطلوب
-        if (Array.isArray(data)) {
-          const formattedDepartments = data.map((dept) => ({
+        // تعديل هنا: التحقق مما إذا كانت البيانات مصفوفة مباشرة أو مغلفة في خاصية departments
+        const departmentsArray = Array.isArray(data) ? data : data.departments || []
+
+        if (departmentsArray.length > 0) {
+          const formattedDepartments = departmentsArray.map((dept) => ({
             id: dept.id,
             name: dept.name,
-            description: dept.description || "لا يوجد وصف متاح",
-            manager: dept.manager || "غير معين",
+            description: dept.description || "No description available",
+            manager: dept.manager || "Not assigned",
             employeeCount: dept.employeeCount || 0,
             company: userCompanyName,
             companyId: dept.companyId,
@@ -195,6 +184,9 @@ export default function DepartmentsPage() {
           // Set the departments state with the formatted data
           setDepartments(formattedDepartments)
           console.log("Formatted Departments:", formattedDepartments)
+        } else {
+          console.log("No departments found in the response")
+          setApiError("No departments found in the response")
         }
       } catch (error) {
         console.error("Error fetching departments:", error)
@@ -217,112 +209,79 @@ export default function DepartmentsPage() {
 
     // Call the function
     fetchDepartments()
-  }, [userCompanyName, useMockData, toast]) // Add useMockData as dependency
+  }, [userCompanyName, toast])
 
-  // Filter departments based on search query and user's company
+  // Filter departments based on search query
   const filteredDepartments = departments.filter((department) => {
-    // If we have a company ID, only show departments for that company
-    if (userCompanyId !== null) {
-      // For demo purposes, we're using the company name for filtering
-      // In a real app, you would compare department.companyId === userCompanyId
-
-      // For now, let's show all departments in the demo
-      return (
-        department.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        department.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        department.manager.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    } else {
-      // If no company ID, show all departments (for admin users)
-      return (
-        department.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        department.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        department.manager.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
+    return (
+      department.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      department.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      department.manager.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   })
 
-  // تحديث وظيفة إنشاء قسم جديد
+  // Updated handleCreateDepartment function using fetchWithAuth
   const handleCreateDepartment = async () => {
     if (!newDepartment.name || !newDepartment.budget) {
       toast({
-        title: "خطأ",
-        description: "يرجى ملء جميع الحقول المطلوبة",
+        title: "Error",
+        description: "Please fill in all required fields",
         variant: "destructive",
       })
       return
     }
 
-    // التحقق من أن الميزانية رقم
+    // Validate that budget is a number
     if (!/^\d+$/.test(newDepartment.budget)) {
       toast({
-        title: "خطأ",
-        description: "يجب أن تكون الميزانية رقمًا صحيحًا",
+        title: "Error",
+        description: "Budget must be a valid number",
         variant: "destructive",
       })
       return
     }
 
-    // إذا كان استخدام البيانات الوهمية مفعل، أضف قسم وهمي
-    if (useMockData) {
-      const newId = Math.max(...departments.map((dept) => dept.id)) + 1
-      const departmentToAdd = {
-        id: newId,
-        name: newDepartment.name,
-        description: newDepartment.description || "",
-        manager: newDepartment.manager || "غير معين",
-        employeeCount: 0,
-        company: userCompanyName,
-        companyId: userCompanyId,
-        budget: Number.parseInt(newDepartment.budget),
-        createdAt: new Date(),
-      }
-
-      setDepartments([...departments, departmentToAdd])
-      setNewDepartment({
-        name: "",
-        description: "",
-        manager: "",
-        company: userCompanyName,
-        budget: "0",
-        companyId: userCompanyId,
-      })
-      setIsCreateDialogOpen(false)
-
-      toast({
-        title: "تم إنشاء القسم",
-        description: `تم إنشاء القسم "${departmentToAdd.name}" بنجاح (وضع المحاكاة)`,
-      })
-
-      return
-    }
-
-    // محاولة إنشاء قسم جديد عبر API
+    // Try to create a new department via API
     try {
-      const response = await fetch("http://localhost:5001/api/v1/department/", {
+      console.log("Sending department creation request with data:", {
+        name: newDepartment.name,
+        budget: Number.parseInt(newDepartment.budget),
+      })
+
+      // Use our fetchWithAuth utility
+      const response = await fetchWithAuth("/api/departments", {
         method: "POST",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           name: newDepartment.name,
           budget: Number.parseInt(newDepartment.budget),
+          // No need to send companyId, the API will use the authenticated user's company
         }),
       })
 
+      console.log("Department creation response status:", response.status)
+
       if (!response.ok) {
-        throw new Error(`خطأ في API: ${response.status} - ${response.statusText}`)
+        const errorText = await response.text()
+        console.error("Error response:", errorText)
+        try {
+          const errorData = JSON.parse(errorText)
+          throw new Error(errorData.error || errorData.message || `API Error: ${response.status}`)
+        } catch (e) {
+          throw new Error(`API Error: ${response.status} - ${errorText.substring(0, 100)}`)
+        }
       }
 
       const createdDepartment = await response.json()
-      console.log("تم إنشاء القسم:", createdDepartment)
+      console.log("Department created:", createdDepartment)
 
       const departmentToAdd = {
         id: createdDepartment.id,
         name: createdDepartment.name,
         description: newDepartment.description || "",
-        manager: newDepartment.manager || "غير معين",
+        manager: newDepartment.manager || "Not assigned",
         employeeCount: 0,
         company: userCompanyName,
         companyId: createdDepartment.companyId,
@@ -337,28 +296,27 @@ export default function DepartmentsPage() {
         manager: "",
         company: userCompanyName,
         budget: "0",
-        companyId: userCompanyId,
       })
       setIsCreateDialogOpen(false)
 
       toast({
-        title: "تم إنشاء القسم",
-        description: `تم إنشاء القسم "${createdDepartment.name}" بنجاح برقم معرف ${createdDepartment.id}`,
+        title: "Department Created",
+        description: `Department "${createdDepartment.name}" created successfully with ID ${createdDepartment.id}`,
       })
     } catch (error) {
-      console.error("خطأ في إنشاء القسم:", error)
+      console.error("Error creating department:", error)
 
-      // عرض رسالة خطأ أكثر تفصيلاً
+      // Show more detailed error message
       if (error instanceof Error) {
         toast({
-          title: "خطأ",
-          description: `حدث خطأ أثناء إنشاء القسم: ${error.message}`,
+          title: "Error",
+          description: `Error creating department: ${error.message}`,
           variant: "destructive",
         })
       } else {
         toast({
-          title: "خطأ",
-          description: "حدث خطأ غير معروف أثناء إنشاء القسم",
+          title: "Error",
+          description: "Unknown error occurred while creating department",
           variant: "destructive",
         })
       }
@@ -373,6 +331,7 @@ export default function DepartmentsPage() {
       description: department.description,
       manager: department.manager,
       company: department.company,
+      budget: department.budget?.toString() || "0",
     })
     setIsEditDialogOpen(true)
   }
@@ -408,7 +367,6 @@ export default function DepartmentsPage() {
       manager: "",
       company: userCompanyName,
       budget: "0",
-      companyId: userCompanyId,
     })
 
     toast({
@@ -456,7 +414,6 @@ export default function DepartmentsPage() {
       manager: "",
       company: userCompanyName,
       budget: "0",
-      companyId: userCompanyId,
     })
 
     toast({
@@ -482,10 +439,6 @@ export default function DepartmentsPage() {
           <p className="text-muted-foreground">Manage organization departments and department managers</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <Switch id="use-mock-data" checked={useMockData} onCheckedChange={setUseMockData} />
-            <Label htmlFor="use-mock-data">Use Mock Data</Label>
-          </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-1">
@@ -560,8 +513,8 @@ export default function DepartmentsPage() {
         </div>
       </div>
 
-      {/* عرض رسالة الخطأ إذا كانت موجودة */}
-      {apiError && !useMockData && (
+      {/* Display error message if present */}
+      {apiError && (
         <Card className="border-red-300 bg-red-50">
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -570,7 +523,7 @@ export default function DepartmentsPage() {
                 <h3 className="font-medium text-red-800">API Connection Error</h3>
                 <p className="text-sm text-red-600">{apiError}</p>
                 <p className="text-sm text-red-600 mt-1">
-                  Using mock data instead. Toggle "Use Mock Data" to hide this message.
+                  Using mock data instead. The system will automatically connect to the API when available.
                 </p>
               </div>
             </div>

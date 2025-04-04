@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MoreHorizontal, Plus, Search, Users, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
+import { fetchWithAuth } from "@/services/api-client"
 
 // Interface for employee data
 interface Employee {
@@ -89,17 +90,17 @@ export default function EmployeesPage() {
   const [isFetching, setIsFetching] = useState(false)
   const [departments, setDepartments] = useState([])
   const { toast } = useToast()
-  const { user } = useAuth() // Get the authenticated user
+  const { user, getAuthHeader } = useAuth() // Get the authenticated user and auth header
 
   // Get the user's company ID
   const userCompanyId = user?.company || 6 // Default to company ID 6 if not available
 
-  // Fetch employees for the user's company
+  // Fetch employees for the user's company using fetchWithAuth
   const fetchEmployees = async () => {
     setIsFetching(true)
     try {
-      // Use the internal API endpoint instead of direct endpoint
-      const response = await fetch(`/api/employees?companyId=${userCompanyId}`)
+      // Use our new fetchWithAuth utility
+      const response = await fetchWithAuth(`/api/employees?companyId=${userCompanyId}`)
 
       if (!response.ok) {
         throw new Error(`Failed to fetch employees: ${response.status}`)
@@ -132,12 +133,13 @@ export default function EmployeesPage() {
     fetchEmployees()
   }, [userCompanyId, toast])
 
-  // Fetch departments for the dropdown
+  // Fetch departments for the dropdown using fetchWithAuth
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        // Use the internal API endpoint instead of direct endpoint
-        const response = await fetch(`/api/departments?companyId=${userCompanyId}`)
+        // Use our new fetchWithAuth utility
+        const response = await fetchWithAuth(`/api/departments?companyId=${userCompanyId}`)
+
         if (!response.ok) {
           throw new Error("Failed to fetch departments")
         }
@@ -174,6 +176,7 @@ export default function EmployeesPage() {
     setNewEmployee((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Updated handleAddEmployee function using fetchWithAuth
   const handleAddEmployee = async () => {
     setIsLoading(true)
     try {
@@ -190,8 +193,8 @@ export default function EmployeesPage() {
         },
       }
 
-      // Make the API call to the internal endpoint
-      const response = await fetch("/api/employees/register", {
+      // Use our new fetchWithAuth utility
+      const response = await fetchWithAuth("/api/employees/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

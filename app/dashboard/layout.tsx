@@ -276,7 +276,7 @@ export default function DashboardLayout({
                   <span className="sr-only">Close navigation menu</span>
                 </Button>
               </div>
-              <nav className="flex-1 overflow-auto">
+              <nav className="flex-1 overflow-auto" aria-label="Main Navigation">
                 <div className="px-4 py-3">
                   <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Main Navigation

@@ -6,6 +6,7 @@ export async function GET() {
 
     const response = await fetch("http://localhost:5001/api/v1/health", {
       method: "GET",
+      credentials: "include", // Add credentials include
       headers: {
         "Content-Type": "application/json",
       },

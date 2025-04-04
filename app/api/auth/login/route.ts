@@ -37,16 +37,42 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: errorData.message || "Login failed" }, { status: response.status })
       }
 
+      // Get the response data
       const data = await response.json()
       console.log("Login response data:", data)
-      return NextResponse.json(data)
+
+      // Extract both tokens from response
+      const accessToken = data.accessToken || null
+      const refreshToken = data.refreshToken || null
+
+      // Create a new response with user data and tokens
+      const newResponse = NextResponse.json({
+        user: data.user || data.employee,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        message: data.message || "Login successful",
+      })
+
+      // Get the Set-Cookie header(s)
+      const setCookieHeader = response.headers.get("set-cookie")
+      console.log("Set-Cookie header:", setCookieHeader)
+
+      // Forward cookies from the original response if they exist
+      if (setCookieHeader) {
+        // Split multiple cookies if they exist (they're separated by commas)
+        const cookies = setCookieHeader.split(", ")
+        for (const cookie of cookies) {
+          newResponse.headers.append("Set-Cookie", cookie)
+        }
+      }
+
+      return newResponse
     } catch (error) {
       console.error("Error forwarding to local API:", error)
 
       // Simulate credential validation when local server is not available
       if (body.username === "test" && body.password === "test") {
-        // If the connection to the local server fails, return a fallback response
-        // Use the exact format provided by the user
+        // If the connection to the local server fails, return a fallback response with mock tokens
         return NextResponse.json({
           user: {
             employee: 7,
@@ -55,8 +81,9 @@ export async function POST(request: Request) {
             role: "Owner",
             username: body.username || "johnئdoe",
           },
+          accessToken: "mock-access-token-" + Math.random().toString(36).substring(2),
+          refreshToken: "mock-refresh-token-" + Math.random().toString(36).substring(2),
           message: "Login successful",
-          token: "mock-jwt-token-" + Math.random().toString(36).substring(2),
         })
       } else {
         // If credentials are invalid

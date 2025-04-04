@@ -9,6 +9,7 @@ export async function POST(request: Request) {
       console.log("Forwarding employee registration request to http://localhost:5001/api/v1/registration/owner/user")
       const response = await fetch("http://localhost:5001/api/v1/registration/owner/user", {
         method: "POST",
+        credentials: "include", // Add credentials include
         headers: {
           "Content-Type": "application/json",
           // Forward authorization header if present
