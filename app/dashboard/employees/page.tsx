@@ -17,19 +17,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MoreHorizontal, Plus, Search, Users, Loader2 } from "lucide-react"
+import { Plus, Search, Users, Loader2, AlertTriangle, Filter, Eye, Pencil, Trash } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
 import { fetchWithAuth } from "@/services/api-client"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Interface for employee data
 interface Employee {
@@ -65,9 +69,28 @@ interface Employee {
   }
 }
 
+// Interface for department data
+interface Department {
+  id: number
+  uuid: string
+  name: string
+  companyId: number
+  parentDepartmentId: number | null
+  budget: string
+  createdAt: string
+  updatedAt: string
+}
+
 // Interface for API response
 interface EmployeeResponse {
   employees: Employee[]
+  total: number
+  page: number
+  limit: number
+}
+
+interface DepartmentResponse {
+  departments: Department[]
   total: number
   page: number
   limit: number
@@ -88,19 +111,36 @@ export default function EmployeesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isFetching, setIsFetching] = useState(false)
-  const [departments, setDepartments] = useState([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all")
+  const [deleteEmployeeId, setDeleteEmployeeId] = useState<number | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const { toast } = useToast()
   const { user, getAuthHeader } = useAuth() // Get the authenticated user and auth header
+  const router = useRouter()
 
   // Get the user's company ID
   const userCompanyId = user?.company || 6 // Default to company ID 6 if not available
 
   // Fetch employees for the user's company using fetchWithAuth
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (departmentId?: string) => {
     setIsFetching(true)
+    setApiError(null)
     try {
-      // Use our new fetchWithAuth utility
-      const response = await fetchWithAuth(`/api/employees?companyId=${userCompanyId}`)
+      // Determine the API endpoint based on whether we're filtering by department
+      const endpoint =
+        departmentId && departmentId !== "all"
+          ? `/api/employees/department/${departmentId}?companyId=${userCompanyId}`
+          : `/api/employees?companyId=${userCompanyId}`
+
+      console.log(`Fetching employees from: ${endpoint}`)
+
+      // Use our fetchWithAuth utility
+      const response = await fetchWithAuth(endpoint)
 
       if (!response.ok) {
         throw new Error(`Failed to fetch employees: ${response.status}`)
@@ -115,6 +155,7 @@ export default function EmployeesPage() {
       })
     } catch (error) {
       console.error("Error fetching employees:", error)
+      setApiError(error instanceof Error ? error.message : "Failed to load employees")
       toast({
         title: "Error",
         description: "Failed to load employees. Please try again later.",
@@ -129,22 +170,29 @@ export default function EmployeesPage() {
     }
   }
 
+  // Effect to fetch employees when the component mounts or when the selected department changes
   useEffect(() => {
-    fetchEmployees()
-  }, [userCompanyId, toast])
+    fetchEmployees(selectedDepartment)
+  }, [userCompanyId, selectedDepartment])
 
-  // Fetch departments for the dropdown using fetchWithAuth
+  // Fetch departments directly from the API endpoint
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        // Use our new fetchWithAuth utility
-        const response = await fetchWithAuth(`/api/departments?companyId=${userCompanyId}`)
+        // Use the direct API endpoint as specified
+        const response = await fetchWithAuth(`/api/departments`)
 
         if (!response.ok) {
           throw new Error("Failed to fetch departments")
         }
-        const data = await response.json()
-        setDepartments(data.departments || [])
+
+        const data: DepartmentResponse = await response.json()
+
+        // Check if departments is an array or nested in a property
+        const departmentsArray = Array.isArray(data) ? data : data.departments || []
+        setDepartments(departmentsArray)
+
+        console.log("Fetched departments:", departmentsArray)
       } catch (error) {
         console.error("Error fetching departments:", error)
         toast({
@@ -176,24 +224,42 @@ export default function EmployeesPage() {
     setNewEmployee((prev) => ({ ...prev, [name]: value }))
   }
 
-  // Updated handleAddEmployee function using fetchWithAuth
+  // Handle department filter change
+  const handleDepartmentFilterChange = (value: string) => {
+    setSelectedDepartment(value)
+  }
+
+  // Updated handleAddEmployee function to use the correct API endpoint and request format
   const handleAddEmployee = async () => {
-    setIsLoading(true)
+    setIsSubmitting(true)
     try {
+      // Validate required fields
+      if (!newEmployee.firstName || !newEmployee.lastName || !newEmployee.email) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        })
+        setIsSubmitting(false)
+        return
+      }
+
       // Format the request body according to the API requirements
       const requestBody = {
         employee: {
           firstName: newEmployee.firstName,
           lastName: newEmployee.lastName,
           email: newEmployee.email,
-          departmentId: newEmployee.departmentId ? Number.parseInt(newEmployee.departmentId) : null,
-          companyId: userCompanyId,
-          jobTitle: newEmployee.jobTitle,
+          departmentId: newEmployee.departmentId || "1", // Default to 1 if not selected
+          companyId: userCompanyId.toString(),
+          jobTitle: newEmployee.jobTitle || "Employee",
           role: newEmployee.role,
         },
       }
 
-      // Use our new fetchWithAuth utility
+      console.log("Sending employee creation request:", requestBody)
+
+      // Use the correct API endpoint for employee registration
       const response = await fetchWithAuth("/api/employees/register", {
         method: "POST",
         headers: {
@@ -208,9 +274,10 @@ export default function EmployeesPage() {
       }
 
       const data = await response.json()
+      console.log("Employee created successfully:", data)
 
       // Refresh the employee list
-      await fetchEmployees()
+      await fetchEmployees(selectedDepartment)
 
       // Reset the form
       setNewEmployee({
@@ -237,8 +304,55 @@ export default function EmployeesPage() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
+  }
+
+  // Function to handle employee deletion
+  const handleDeleteEmployee = async () => {
+    if (!deleteEmployeeId) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetchWithAuth(`/api/employees/${deleteEmployeeId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete employee")
+      }
+
+      // Refresh the employee list
+      await fetchEmployees(selectedDepartment)
+
+      toast({
+        title: "Success",
+        description: "Employee deleted successfully!",
+      })
+    } catch (error: any) {
+      console.error("Error deleting employee:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete employee. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+      setDeleteEmployeeId(null)
+    }
+  }
+
+  // Function to open the delete confirmation dialog
+  const confirmDelete = (employeeId: number) => {
+    setDeleteEmployeeId(employeeId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Function to navigate to the edit employee page
+  const navigateToEdit = (employeeId: number) => {
+    router.push(`/dashboard/employees/${employeeId}/edit`)
   }
 
   return (
@@ -270,6 +384,7 @@ export default function EmployeesPage() {
                     value={newEmployee.firstName}
                     onChange={handleInputChange}
                     placeholder="Enter first name"
+                    required
                   />
                 </div>
                 <div className="grid gap-2">
@@ -280,6 +395,7 @@ export default function EmployeesPage() {
                     value={newEmployee.lastName}
                     onChange={handleInputChange}
                     placeholder="Enter last name"
+                    required
                   />
                 </div>
               </div>
@@ -292,6 +408,7 @@ export default function EmployeesPage() {
                   value={newEmployee.email}
                   onChange={handleInputChange}
                   placeholder="Enter email address"
+                  required
                 />
               </div>
               <div className="grid gap-2">
@@ -304,7 +421,7 @@ export default function EmployeesPage() {
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((department: any) => (
+                    {departments.map((department) => (
                       <SelectItem key={department.id} value={department.id.toString()}>
                         {department.name}
                       </SelectItem>
@@ -337,11 +454,11 @@ export default function EmployeesPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isLoading}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button onClick={handleAddEmployee} disabled={isLoading}>
-                {isLoading ? (
+              <Button onClick={handleAddEmployee} disabled={isSubmitting}>
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...
@@ -354,7 +471,26 @@ export default function EmployeesPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <div className="flex items-center gap-4">
+
+      {/* Display API error if present */}
+      {apiError && (
+        <Card className="border-red-300 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <div>
+                <h3 className="font-medium text-red-800">API Connection Error</h3>
+                <p className="text-sm text-red-600">{apiError}</p>
+                <p className="text-sm text-red-600 mt-1">
+                  Using mock data instead. The system will automatically connect to the API when available.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -365,8 +501,26 @@ export default function EmployeesPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline">Filter</Button>
+        <div className="flex items-center gap-2">
+          <Select value={selectedDepartment} onValueChange={handleDepartmentFilterChange}>
+            <SelectTrigger className="w-[200px]">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                <SelectValue placeholder="Filter by department" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map((department) => (
+                <SelectItem key={department.id} value={department.id.toString()}>
+                  {department.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -504,25 +658,27 @@ export default function EmployeesPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>View Profile</DropdownMenuItem>
-                            <DropdownMenuItem>Edit Details</DropdownMenuItem>
-                            <DropdownMenuItem>Assign Tasks</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
-                              {employee.isActive ? "Deactivate" : "Activate"}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" asChild>
+                            <Link href={`/dashboard/employees/${employee.id}`}>
+                              <Eye className="h-4 w-4" />
+                              <span className="sr-only">View</span>
+                            </Link>
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => navigateToEdit(employee.id)}>
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => confirmDelete(employee.id)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -532,6 +688,35 @@ export default function EmployeesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the employee from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEmployee}
+              disabled={isDeleting}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

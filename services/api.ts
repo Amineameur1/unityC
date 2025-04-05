@@ -65,11 +65,11 @@ api.interceptors.response.use(
 
 export default api
 
-// Update the departmentService.createDepartment method to include companyId
+// Updated departmentService with correct endpoints and response handling
 export const departmentService = {
   async createDepartment(data) {
     try {
-      const response = await api.post("/departments", {
+      const response = await api.post("/department", {
         name: data.name,
         budget: Number.parseInt(data.budget),
         companyId: data.companyId, // Include the company ID
@@ -82,7 +82,7 @@ export const departmentService = {
 
   async createSubDepartment(data) {
     try {
-      const response = await api.post("/departments/sub", {
+      const response = await api.post("/department/sub", {
         name: data.name,
         budget: Number.parseInt(data.budget),
         parentDepartmentId: data.parentDepartmentId,
@@ -96,10 +96,10 @@ export const departmentService = {
 
   async updateDepartment(departmentId, data) {
     try {
-      const response = await api.put(`/departments/${departmentId}`, {
+      const response = await api.put(`/department/${departmentId}`, {
         name: data.name,
         budget: data.budget ? Number.parseInt(data.budget) : undefined,
-        parentDepartment: data.parentDepartmentId,
+        parentDepartmentId: data.parentDepartmentId,
         companyId: data.companyId, // Include the company ID if needed for validation
       })
       return response.data
@@ -110,8 +110,35 @@ export const departmentService = {
 
   async deleteDepartment(departmentId) {
     try {
-      await api.delete(`/departments/${departmentId}`)
-      return true
+      const response = await api.delete(`/department/${departmentId}`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async getDepartments() {
+    try {
+      const response = await api.get("/department")
+      return response.data // API returns array of departments directly
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async getDepartmentById(departmentId) {
+    try {
+      const response = await api.get(`/department/${departmentId}`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async getSubDepartments(parentDepartmentId) {
+    try {
+      const response = await api.get(`/department/parent/${parentDepartmentId}`)
+      return response.data // API returns array of sub-departments
     } catch (error) {
       throw error
     }

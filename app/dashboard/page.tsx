@@ -39,7 +39,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">12</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
+            <div className="flex items-center gap-2">
               <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
               <span className="text-green-500 font-medium">+2</span>
               <span className="ml-1">from last month</span>
@@ -55,7 +55,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">245</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
+            <div className="flex items-center gap-2">
               <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
               <span className="text-green-500 font-medium">+18</span>
               <span className="ml-1">from last month</span>
@@ -71,7 +71,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">89</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
+            <div className="flex items-center gap-2">
               <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
               <span className="text-green-500 font-medium">+7</span>
               <span className="ml-1">from yesterday</span>
@@ -87,7 +87,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">356</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
+            <div className="flex items-center gap-2">
               <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
               <span className="text-green-500 font-medium">+24</span>
               <span className="ml-1">from last month</span>
@@ -107,7 +107,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">$1,245,890</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
+            <div className="flex items-center gap-2">
               <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
               <span className="text-green-500 font-medium">+8.2%</span>
               <span className="ml-1">from last quarter</span>

@@ -3,15 +3,20 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    console.log("Employee registration request body:", body)
+
+    // Get all cookies from the request
+    const cookieHeader = request.headers.get("cookie")
 
     // Try to forward the request to the local server
     try {
       console.log("Forwarding employee registration request to http://localhost:5001/api/v1/registration/owner/user")
       const response = await fetch("http://localhost:5001/api/v1/registration/owner/user", {
         method: "POST",
-        credentials: "include", // Add credentials include
+        credentials: "include", // Include cookies
         headers: {
           "Content-Type": "application/json",
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
           // Forward authorization header if present
           ...(request.headers.get("Authorization")
             ? { Authorization: request.headers.get("Authorization") as string }
@@ -20,8 +25,11 @@ export async function POST(request: Request) {
         body: JSON.stringify(body),
       })
 
+      console.log("Employee registration response status:", response.status)
+
       if (!response.ok) {
         const errorData = await response.json()
+        console.error("Error from API:", errorData)
         return NextResponse.json(
           { error: errorData.message || "Failed to register employee" },
           { status: response.status },
@@ -29,6 +37,7 @@ export async function POST(request: Request) {
       }
 
       const data = await response.json()
+      console.log("Employee registration response data:", data)
       return NextResponse.json(data)
     } catch (error) {
       console.error("Error forwarding to local API:", error)

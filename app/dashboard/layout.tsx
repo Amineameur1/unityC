@@ -271,7 +271,7 @@ export default function DashboardLayout({
                   </div>
                   EnterpriseOS
                 </Link>
-                <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setOpen(false)}>
+                <Button variant="ghost" size="icon" className="mr-auto" onClick={() => setOpen(false)}>
                   <X className="h-5 w-5" />
                   <span className="sr-only">Close navigation menu</span>
                 </Button>
@@ -363,7 +363,7 @@ export default function DashboardLayout({
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input type="search" placeholder="Search..." className="w-full rounded-full bg-background pl-8 md:w-80" />
         </div>
-        <Button variant="ghost" size="icon" className="relative ml-auto md:ml-0">
+        <Button variant="ghost" size="icon" className="relative mr-auto md:mr-0">
           <Bell className="h-5 w-5" />
           <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
             3

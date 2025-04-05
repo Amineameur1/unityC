@@ -28,59 +28,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MoreHorizontal, Plus, Search, Users, Building2, UserCog, AlertTriangle } from "lucide-react"
+import {
+  MoreHorizontal,
+  Plus,
+  Search,
+  Users,
+  Building2,
+  UserCog,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { fetchWithAuth } from "@/services/api-client"
-
-// Sample department data
-const initialDepartments = [
-  {
-    id: 1,
-    name: "Engineering",
-    description: "Software development and engineering team",
-    manager: "David Wilson",
-    employeeCount: 25,
-    company: "Acme Corporation",
-    createdAt: new Date(2022, 5, 15),
-  },
-  {
-    id: 2,
-    name: "Marketing",
-    description: "Marketing and brand management",
-    manager: "Sarah Johnson",
-    employeeCount: 15,
-    company: "Acme Corporation",
-    createdAt: new Date(2022, 6, 10),
-  },
-  {
-    id: 3,
-    name: "Finance",
-    description: "Financial operations and accounting",
-    manager: "Michael Brown",
-    employeeCount: 10,
-    company: "Globex Industries",
-    createdAt: new Date(2022, 4, 20),
-  },
-  {
-    id: 4,
-    name: "Human Resources",
-    description: "Employee management and recruitment",
-    manager: "Emily Davis",
-    employeeCount: 8,
-    company: "Initech Solutions",
-    createdAt: new Date(2022, 7, 5),
-  },
-  {
-    id: 5,
-    name: "Sales",
-    description: "Sales and client relationships",
-    manager: "Jessica Martinez",
-    employeeCount: 20,
-    company: "Stark Industries",
-    createdAt: new Date(2022, 3, 12),
-  },
-]
+import { departmentService } from "@/services/api"
 
 // Sample employees data for manager selection
 const employees = [
@@ -104,13 +65,32 @@ const companies = [
   { id: 6, name: "Your Company" },
 ]
 
+// Interface for department data
+interface Department {
+  id: number
+  uuid?: string
+  name: string
+  description?: string
+  manager?: string
+  employeeCount?: number
+  company?: string
+  companyId?: number
+  parentDepartmentId: number | null
+  budget: string | number
+  createdAt: Date | string
+  updatedAt?: Date | string
+  subDepartments?: Department[]
+  isExpanded?: boolean
+}
+
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = useState(initialDepartments)
+  const [departments, setDepartments] = useState<Department[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isCreateSubDialogOpen, setIsCreateSubDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isChangeManagerDialogOpen, setIsChangeManagerDialogOpen] = useState(false)
-  const [currentDepartment, setCurrentDepartment] = useState<any>(null)
+  const [currentDepartment, setCurrentDepartment] = useState<Department | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const { toast } = useToast()
   const { user } = useAuth() // Get the authenticated user
@@ -128,6 +108,7 @@ export default function DepartmentsPage() {
     manager: "",
     company: userCompanyName,
     budget: "0",
+    parentDepartmentId: "",
   })
 
   // Handle input change for text fields
@@ -147,80 +128,121 @@ export default function DepartmentsPage() {
     }))
   }
 
-  // Updated fetchDepartments function using fetchWithAuth
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      // Always try to connect to API first
-      setApiError(null) // Reset error state before attempting connection
+  // Updated fetchDepartments function using departmentService
+  const fetchDepartments = async () => {
+    // Always try to connect to API first
+    setApiError(null) // Reset error state before attempting connection
 
-      try {
-        // Use our fetchWithAuth utility to get departments
-        // No need to send companyId, the API will use the authenticated user's company
-        const response = await fetchWithAuth(`/api/departments`)
+    try {
+      // Use our departmentService to get departments
+      const departmentsData = await departmentService.getDepartments()
+      console.log("Fetched departments:", departmentsData)
 
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`)
-        }
+      if (departmentsData && departmentsData.length > 0) {
+        const formattedDepartments = await Promise.all(
+          departmentsData.map(async (dept) => {
+            // Only fetch sub-departments for parent departments
+            let subDepartments = []
+            if (dept.parentDepartmentId === null) {
+              try {
+                subDepartments = await departmentService.getSubDepartments(dept.id)
+                console.log(`Sub-departments for ${dept.id}:`, subDepartments)
+              } catch (error) {
+                console.error(`Error fetching sub-departments for department ${dept.id}:`, error)
+                subDepartments = []
+              }
+            }
 
-        const data = await response.json()
-        console.log("Fetched departments:", data)
+            return {
+              id: dept.id,
+              uuid: dept.uuid,
+              name: dept.name,
+              description: dept.description || "No description available",
+              manager: dept.manager || "Not assigned",
+              employeeCount: dept.employeeCount || 0,
+              company: userCompanyName,
+              companyId: dept.companyId,
+              parentDepartmentId: dept.parentDepartmentId,
+              budget: dept.budget,
+              createdAt: new Date(dept.createdAt),
+              updatedAt: dept.updatedAt ? new Date(dept.updatedAt) : undefined,
+              subDepartments: subDepartments.map((subDept) => ({
+                ...subDept,
+                createdAt: new Date(subDept.createdAt),
+                updatedAt: subDept.updatedAt ? new Date(subDept.updatedAt) : undefined,
+                description: subDept.description || "No description available",
+                manager: subDept.manager || "Not assigned",
+                employeeCount: subDept.employeeCount || 0,
+              })),
+              isExpanded: false,
+            }
+          }),
+        )
 
-        // تعديل هنا: التحقق مما إذا كانت البيانات مصفوفة مباشرة أو مغلفة في خاصية departments
-        const departmentsArray = Array.isArray(data) ? data : data.departments || []
+        // Filter to only show parent departments in the main list
+        const parentDepartments = formattedDepartments.filter((dept) => dept.parentDepartmentId === null)
 
-        if (departmentsArray.length > 0) {
-          const formattedDepartments = departmentsArray.map((dept) => ({
-            id: dept.id,
-            name: dept.name,
-            description: dept.description || "No description available",
-            manager: dept.manager || "Not assigned",
-            employeeCount: dept.employeeCount || 0,
-            company: userCompanyName,
-            companyId: dept.companyId,
-            budget: Number.parseInt(dept.budget) || 0,
-            createdAt: new Date(dept.createdAt),
-          }))
-
-          // Set the departments state with the formatted data
-          setDepartments(formattedDepartments)
-          console.log("Formatted Departments:", formattedDepartments)
-        } else {
-          console.log("No departments found in the response")
-          setApiError("No departments found in the response")
-        }
-      } catch (error) {
-        console.error("Error fetching departments:", error)
-
-        // Store error message to display in UI
-        if (error instanceof Error) {
-          setApiError(error.message)
-        } else {
-          setApiError("Unknown error occurred while connecting to server")
-        }
-
-        // Show warning message
-        toast({
-          title: "Failed to connect to server",
-          description: "Could not fetch departments from API. Using sample data instead.",
-          variant: "destructive",
-        })
+        // Set the departments state with the formatted data
+        setDepartments(parentDepartments)
+        console.log("Formatted Departments:", parentDepartments)
+      } else {
+        console.log("No departments found in the response")
+        setApiError("No departments found in the response")
       }
-    }
+    } catch (error) {
+      console.error("Error fetching departments:", error)
 
-    // Call the function
+      // Store error message to display in UI
+      if (error instanceof Error) {
+        setApiError(error.message)
+      } else {
+        setApiError("Unknown error occurred while connecting to server")
+      }
+
+      // Show warning message
+      toast({
+        title: "Failed to connect to server",
+        description: "Could not fetch departments from API. Using sample data instead.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Call fetchDepartments on component mount
+  useEffect(() => {
     fetchDepartments()
   }, [userCompanyName, toast])
 
+  // Toggle department expansion to show/hide sub-departments
+  const toggleDepartmentExpansion = (departmentId: number) => {
+    setDepartments((prevDepartments) =>
+      prevDepartments.map((dept) => (dept.id === departmentId ? { ...dept, isExpanded: !dept.isExpanded } : dept)),
+    )
+  }
+
   // Filter departments based on search query
   const filteredDepartments = departments.filter((department) => {
-    return (
+    const matchesSearch =
       department.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      department.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      department.manager.toLowerCase().includes(searchQuery.toLowerCase())
+      department.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      false ||
+      department.manager?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      false
+
+    // Also check sub-departments
+    const hasMatchingSubDepartment = department.subDepartments?.some(
+      (subDept) =>
+        subDept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        subDept.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        false ||
+        subDept.manager?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        false,
     )
+
+    return matchesSearch || hasMatchingSubDepartment
   })
 
-  // Updated handleCreateDepartment function using fetchWithAuth
+  // Updated handleCreateDepartment function using departmentService
   const handleCreateDepartment = async () => {
     if (!newDepartment.name || !newDepartment.budget) {
       toast({
@@ -248,54 +270,24 @@ export default function DepartmentsPage() {
         budget: Number.parseInt(newDepartment.budget),
       })
 
-      // Use our fetchWithAuth utility
-      const response = await fetchWithAuth("/api/departments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: newDepartment.name,
-          budget: Number.parseInt(newDepartment.budget),
-          // No need to send companyId, the API will use the authenticated user's company
-        }),
+      const createdDepartment = await departmentService.createDepartment({
+        name: newDepartment.name,
+        budget: Number.parseInt(newDepartment.budget),
+        companyId: userCompanyId,
       })
 
-      console.log("Department creation response status:", response.status)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Error response:", errorText)
-        try {
-          const errorData = JSON.parse(errorText)
-          throw new Error(errorData.error || errorData.message || `API Error: ${response.status}`)
-        } catch (e) {
-          throw new Error(`API Error: ${response.status} - ${errorText.substring(0, 100)}`)
-        }
-      }
-
-      const createdDepartment = await response.json()
       console.log("Department created:", createdDepartment)
 
-      const departmentToAdd = {
-        id: createdDepartment.id,
-        name: createdDepartment.name,
-        description: newDepartment.description || "",
-        manager: newDepartment.manager || "Not assigned",
-        employeeCount: 0,
-        company: userCompanyName,
-        companyId: createdDepartment.companyId,
-        budget: Number.parseInt(createdDepartment.budget),
-        createdAt: new Date(createdDepartment.createdAt),
-      }
+      // Refresh the departments list
+      await fetchDepartments()
 
-      setDepartments([...departments, departmentToAdd])
       setNewDepartment({
         name: "",
         description: "",
         manager: "",
         company: userCompanyName,
         budget: "0",
+        parentDepartmentId: "",
       })
       setIsCreateDialogOpen(false)
 
@@ -323,22 +315,9 @@ export default function DepartmentsPage() {
     }
   }
 
-  // Handle edit department
-  const handleEditDepartment = (department: any) => {
-    setCurrentDepartment(department)
-    setNewDepartment({
-      name: department.name,
-      description: department.description,
-      manager: department.manager,
-      company: department.company,
-      budget: department.budget?.toString() || "0",
-    })
-    setIsEditDialogOpen(true)
-  }
-
-  // Handle update department
-  const handleUpdateDepartment = () => {
-    if (!newDepartment.name || !newDepartment.manager) {
+  // Handle create sub-department
+  const handleCreateSubDepartment = async () => {
+    if (!newDepartment.name || !newDepartment.budget || !newDepartment.parentDepartmentId) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -347,40 +326,146 @@ export default function DepartmentsPage() {
       return
     }
 
-    const updatedDepartments = departments.map((dept) =>
-      dept.id === currentDepartment.id
-        ? {
-            ...dept,
-            name: newDepartment.name,
-            description: newDepartment.description,
-            manager: newDepartment.manager,
-          }
-        : dept,
-    )
+    // Validate that budget is a number
+    if (!/^\d+$/.test(newDepartment.budget)) {
+      toast({
+        title: "Error",
+        description: "Budget must be a valid number",
+        variant: "destructive",
+      })
+      return
+    }
 
-    setDepartments(updatedDepartments)
-    setIsEditDialogOpen(false)
-    setCurrentDepartment(null)
+    try {
+      console.log("Creating sub-department with data:", {
+        name: newDepartment.name,
+        budget: Number.parseInt(newDepartment.budget),
+        parentDepartmentId: newDepartment.parentDepartmentId,
+      })
+
+      const createdSubDepartment = await departmentService.createSubDepartment({
+        name: newDepartment.name,
+        budget: Number.parseInt(newDepartment.budget),
+        parentDepartmentId: Number.parseInt(newDepartment.parentDepartmentId),
+        companyId: userCompanyId,
+      })
+
+      console.log("Sub-department created:", createdSubDepartment)
+
+      // Refresh the departments list
+      await fetchDepartments()
+
+      setNewDepartment({
+        name: "",
+        description: "",
+        manager: "",
+        company: userCompanyName,
+        budget: "0",
+        parentDepartmentId: "",
+      })
+      setIsCreateSubDialogOpen(false)
+
+      toast({
+        title: "Sub-Department Created",
+        description: `Sub-department "${createdSubDepartment.name}" created successfully`,
+      })
+    } catch (error) {
+      console.error("Error creating sub-department:", error)
+
+      if (error instanceof Error) {
+        toast({
+          title: "Error",
+          description: `Error creating sub-department: ${error.message}`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Unknown error occurred while creating sub-department",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  // Handle edit department
+  const handleEditDepartment = (department: Department) => {
+    setCurrentDepartment(department)
     setNewDepartment({
-      name: "",
-      description: "",
-      manager: "",
+      name: department.name,
+      description: department.description || "",
+      manager: department.manager || "",
       company: userCompanyName,
-      budget: "0",
+      budget: typeof department.budget === "number" ? department.budget.toString() : department.budget,
+      parentDepartmentId: department.parentDepartmentId ? department.parentDepartmentId.toString() : "",
     })
+    setIsEditDialogOpen(true)
+  }
 
-    toast({
-      title: "Department Updated",
-      description: "Department information has been updated successfully",
-    })
+  // Handle update department
+  const handleUpdateDepartment = async () => {
+    if (!currentDepartment || !newDepartment.name) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const updatedDepartment = await departmentService.updateDepartment(currentDepartment.id, {
+        name: newDepartment.name,
+        budget: newDepartment.budget,
+        parentDepartmentId: newDepartment.parentDepartmentId ? Number.parseInt(newDepartment.parentDepartmentId) : null,
+        companyId: userCompanyId,
+      })
+
+      console.log("Department updated:", updatedDepartment)
+
+      // Refresh the departments list
+      await fetchDepartments()
+
+      setIsEditDialogOpen(false)
+      setCurrentDepartment(null)
+      setNewDepartment({
+        name: "",
+        description: "",
+        manager: "",
+        company: userCompanyName,
+        budget: "0",
+        parentDepartmentId: "",
+      })
+
+      toast({
+        title: "Department Updated",
+        description: "Department information has been updated successfully",
+      })
+    } catch (error) {
+      console.error("Error updating department:", error)
+
+      if (error instanceof Error) {
+        toast({
+          title: "Error",
+          description: `Error updating department: ${error.message}`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Unknown error occurred while updating department",
+          variant: "destructive",
+        })
+      }
+    }
   }
 
   // Handle change department manager
-  const handleChangeManager = (department: any) => {
+  const handleChangeManager = (department: Department) => {
     setCurrentDepartment(department)
     setNewDepartment({
       ...newDepartment,
-      manager: department.manager,
+      manager: department.manager || "",
     })
     setIsChangeManagerDialogOpen(true)
   }
@@ -396,16 +481,27 @@ export default function DepartmentsPage() {
       return
     }
 
-    const updatedDepartments = departments.map((dept) =>
-      dept.id === currentDepartment.id
-        ? {
-            ...dept,
-            manager: newDepartment.manager,
-          }
-        : dept,
-    )
+    // In a real application, you would call an API to update the manager
+    // For now, we'll just update the local state
 
-    setDepartments(updatedDepartments)
+    setDepartments((prevDepartments) => {
+      return prevDepartments.map((dept) => {
+        if (dept.id === currentDepartment?.id) {
+          return { ...dept, manager: newDepartment.manager }
+        }
+
+        // Also check and update in sub-departments if needed
+        if (dept.subDepartments && dept.subDepartments.length > 0) {
+          const updatedSubDepts = dept.subDepartments.map((subDept) =>
+            subDept.id === currentDepartment?.id ? { ...subDept, manager: newDepartment.manager } : subDept,
+          )
+          return { ...dept, subDepartments: updatedSubDepts }
+        }
+
+        return dept
+      })
+    })
+
     setIsChangeManagerDialogOpen(false)
     setCurrentDepartment(null)
     setNewDepartment({
@@ -414,6 +510,7 @@ export default function DepartmentsPage() {
       manager: "",
       company: userCompanyName,
       budget: "0",
+      parentDepartmentId: "",
     })
 
     toast({
@@ -423,13 +520,44 @@ export default function DepartmentsPage() {
   }
 
   // Handle delete department
-  const handleDeleteDepartment = (id: number) => {
-    setDepartments(departments.filter((dept) => dept.id !== id))
-    toast({
-      title: "Department Deleted",
-      description: "Department has been deleted successfully",
-    })
+  const handleDeleteDepartment = async (id: number) => {
+    try {
+      // Call the API to delete the department
+      await departmentService.deleteDepartment(id)
+
+      // Refresh the departments list
+      await fetchDepartments()
+
+      toast({
+        title: "Department Deleted",
+        description: "Department has been deleted successfully",
+      })
+    } catch (error) {
+      console.error("Error deleting department:", error)
+
+      toast({
+        title: "Error",
+        description: "Failed to delete department. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
+
+  // Calculate total departments (including sub-departments)
+  const totalDepartments = departments.reduce((total, dept) => {
+    return total + 1 + (dept.subDepartments?.length || 0)
+  }, 0)
+
+  // Calculate total employees across all departments
+  const totalEmployees = departments.reduce((total, dept) => {
+    const deptEmployees = dept.employeeCount || 0
+    const subDeptEmployees =
+      dept.subDepartments?.reduce((subTotal, subDept) => {
+        return subTotal + (subDept.employeeCount || 0)
+      }, 0) || 0
+
+    return total + deptEmployees + subDeptEmployees
+  }, 0)
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -439,6 +567,96 @@ export default function DepartmentsPage() {
           <p className="text-muted-foreground">Manage organization departments and department managers</p>
         </div>
         <div className="flex items-center gap-4">
+          <Dialog open={isCreateSubDialogOpen} onOpenChange={setIsCreateSubDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-1">
+                <Plus className="h-4 w-4" />
+                Add Sub-Department
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Sub-Department</DialogTitle>
+                <DialogDescription>Create a sub-department under an existing department</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="parentDepartmentId">Parent Department</Label>
+                  <Select
+                    value={newDepartment.parentDepartmentId}
+                    onValueChange={(value) => handleSelectChange("parentDepartmentId", value)}
+                  >
+                    <SelectTrigger id="parentDepartmentId">
+                      <SelectValue placeholder="Select parent department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="sub-name">Sub-Department Name</Label>
+                  <Input
+                    id="sub-name"
+                    name="name"
+                    value={newDepartment.name}
+                    onChange={handleInputChange}
+                    placeholder="Enter sub-department name"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="sub-description">Sub-Department Description</Label>
+                  <Textarea
+                    id="sub-description"
+                    name="description"
+                    value={newDepartment.description}
+                    onChange={handleInputChange}
+                    placeholder="Enter sub-department description"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="sub-budget">Budget</Label>
+                  <Input
+                    id="sub-budget"
+                    name="budget"
+                    type="number"
+                    value={newDepartment.budget}
+                    onChange={handleInputChange}
+                    placeholder="Enter sub-department budget"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="sub-manager">Department Manager</Label>
+                  <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
+                    <SelectTrigger id="sub-manager">
+                      <SelectValue placeholder="Select department manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.name}>
+                          {employee.name} - {employee.position}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateSubDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateSubDepartment}>Add Sub-Department</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-1">
@@ -551,7 +769,7 @@ export default function DepartmentsPage() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{departments.length}</div>
+            <div className="text-2xl font-bold">{totalDepartments}</div>
             <p className="text-xs text-muted-foreground">In your company</p>
           </CardContent>
         </Card>
@@ -561,7 +779,7 @@ export default function DepartmentsPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{departments.reduce((sum, dept) => sum + dept.employeeCount, 0)}</div>
+            <div className="text-2xl font-bold">{totalEmployees}</div>
             <p className="text-xs text-muted-foreground">Across all departments</p>
           </CardContent>
         </Card>
@@ -572,9 +790,7 @@ export default function DepartmentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {departments.length > 0
-                ? Math.round(departments.reduce((sum, dept) => sum + dept.employeeCount, 0) / departments.length)
-                : 0}
+              {totalDepartments > 0 ? Math.round(totalEmployees / totalDepartments) : 0}
             </div>
             <p className="text-xs text-muted-foreground">Employees per department</p>
           </CardContent>
@@ -592,7 +808,7 @@ export default function DepartmentsPage() {
                 <TableHead>Department Name</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Department Manager</TableHead>
-                <TableHead className="text-right">Employee Count</TableHead>
+                <TableHead className="text-right">Budget</TableHead>
                 <TableHead className="text-right">Creation Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -600,46 +816,110 @@ export default function DepartmentsPage() {
             <TableBody>
               {filteredDepartments.length > 0 ? (
                 filteredDepartments.map((department) => (
-                  <TableRow key={department.id}>
-                    <TableCell className="font-medium">{department.name}</TableCell>
-                    <TableCell>{department.description}</TableCell>
-                    <TableCell>{department.manager}</TableCell>
-                    <TableCell className="text-right">{department.employeeCount}</TableCell>
-                    <TableCell className="text-right">
-                      {new Date(department.createdAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "2-digit",
-                        day: "2-digit",
-                      })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleEditDepartment(department)}>
-                            Edit Department
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleChangeManager(department)}>
-                            Change Department Manager
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleDeleteDepartment(department.id)}
+                  <>
+                    <TableRow key={department.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => toggleDepartmentExpansion(department.id)}
+                            className="mr-2 focus:outline-none"
+                            aria-label={department.isExpanded ? "Collapse department" : "Expand department"}
                           >
-                            Delete Department
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                            {department.subDepartments && department.subDepartments.length > 0 ? (
+                              department.isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )
+                            ) : null}
+                          </button>
+                          {department.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{department.description}</TableCell>
+                      <TableCell>{department.manager}</TableCell>
+                      <TableCell className="text-right">{department.budget}</TableCell>
+                      <TableCell className="text-right">
+                        {new Date(department.createdAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleEditDepartment(department)}>
+                              Edit Department
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleChangeManager(department)}>
+                              Change Department Manager
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => handleDeleteDepartment(department.id)}
+                            >
+                              Delete Department
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                    {/* Render sub-departments if expanded */}
+                    {department.isExpanded &&
+                      department.subDepartments &&
+                      department.subDepartments.map((subDept) => (
+                        <TableRow key={`sub-${subDept.id}`} className="bg-muted/30">
+                          <TableCell className="font-medium pl-10">└─ {subDept.name}</TableCell>
+                          <TableCell>{subDept.description}</TableCell>
+                          <TableCell>{subDept.manager}</TableCell>
+                          <TableCell className="text-right">{subDept.budget}</TableCell>
+                          <TableCell className="text-right">
+                            {new Date(subDept.createdAt).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                            })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Actions</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleEditDepartment(subDept)}>
+                                  Edit Sub-Department
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleChangeManager(subDept)}>
+                                  Change Manager
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDeleteDepartment(subDept.id)}
+                                >
+                                  Delete Sub-Department
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </>
                 ))
               ) : (
                 <TableRow>
@@ -681,6 +961,18 @@ export default function DepartmentsPage() {
                 onChange={handleInputChange}
                 placeholder="Enter department description"
                 rows={3}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-budget">Budget</Label>
+              <Input
+                id="edit-budget"
+                name="budget"
+                type="number"
+                value={newDepartment.budget}
+                onChange={handleInputChange}
+                placeholder="Enter department budget"
+                required
               />
             </div>
             <div className="grid gap-2">
