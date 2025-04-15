@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -17,77 +17,118 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, ClipboardList, Clock, MoreHorizontal, Search } from "lucide-react"
 import { format } from "date-fns"
+import { useToast } from "@/components/ui/use-toast"
+import { fetchWithAuth } from "@/services/api-client"
+import { useAuth } from "@/components/auth-provider"
 
-// Sample task data for the current employee
-const initialTasks = [
-  {
-    id: 1,
-    title: "Prepare Monthly Sales Report",
-    description: "Create a detailed report on last month's sales and performance analysis",
-    assignedBy: "Ahmed Mohammed",
-    status: "In Progress",
-    priority: "High",
-    dueDate: new Date(2023, 5, 15),
-  },
-  {
-    id: 2,
-    title: "Update Customer Database",
-    description: "Update customer information and add new customers to the database",
-    assignedBy: "Sarah Ahmed",
-    status: "Pending",
-    priority: "Medium",
-    dueDate: new Date(2023, 5, 18),
-  },
-  {
-    id: 3,
-    title: "Prepare Presentation for New Product",
-    description: "Create a presentation for the new product for the meeting with potential clients",
-    assignedBy: "Mohammed Ali",
-    status: "In Progress",
-    priority: "High",
-    dueDate: new Date(2023, 5, 20),
-  },
-  {
-    id: 4,
-    title: "Review Marketing Plan",
-    description: "Review the marketing plan for the next quarter and provide feedback",
-    assignedBy: "Sarah Ahmed",
-    status: "Completed",
-    priority: "Medium",
-    dueDate: new Date(2023, 5, 10),
-  },
-  {
-    id: 5,
-    title: "Train New Employees",
-    description: "Train new employees on using the enterprise management system",
-    assignedBy: "Ahmed Mohammed",
-    status: "In Progress",
-    priority: "High",
-    dueDate: new Date(2023, 5, 25),
-  },
-]
+// Interface for task data
+interface Task {
+  id: number
+  title: string
+  description: string
+  assignedTo: number
+  departmentId: number
+  status: string
+  priority: string
+  deadline: string
+  createdAt: string
+  updatedAt: string
+  employee?: {
+    id: number
+    firstName: string
+    lastName: string
+  }
+  department?: {
+    id: number
+    name: string
+  }
+}
 
 export default function MyTasksPage() {
-  const [tasks, setTasks] = useState(initialTasks)
+  const [tasks, setTasks] = useState<Task[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
+  const { user } = useAuth()
 
-  const filteredTasks = tasks.filter(
-    (task) =>
-      (activeTab === "all" ||
-        (activeTab === "active" && task.status !== "Completed") ||
-        (activeTab === "completed" && task.status === "Completed")) &&
-      (task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.assignedBy.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
+  // Fetch tasks assigned to the current user
+  useEffect(() => {
+    const fetchMyTasks = async () => {
+      setIsLoading(true)
+      try {
+        // Get the current user's employee ID
+        const employeeId = user?.employee || 1 // Default to 1 if not available
 
-  const markTaskAsComplete = (id: number) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, status: task.status === "Completed" ? "In Progress" : "Completed" } : task,
-      ),
-    )
+        const response = await fetchWithAuth(`/api/tasks/my-tasks?employeeId=${employeeId}`)
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch tasks")
+        }
+
+        const data = await response.json()
+        setTasks(Array.isArray(data) ? data : [])
+
+        toast({
+          title: "Tasks loaded",
+          description: `Successfully loaded ${Array.isArray(data) ? data.length : 0} tasks`,
+        })
+      } catch (error) {
+        console.error("Error fetching tasks:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load tasks. Please try again later.",
+          variant: "destructive",
+        })
+        setTasks([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchMyTasks()
+  }, [toast, user])
+
+  // Filter tasks based on search query and active tab
+  const filteredTasks = tasks.filter((task) => {
+    // Search filter
+    const matchesSearch =
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.department?.name && task.department.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
+    // Status filter
+    const matchesStatus =
+      activeTab === "all" ||
+      (activeTab === "active" && task.status !== "Completed") ||
+      (activeTab === "completed" && task.status === "Completed")
+
+    return matchesSearch && matchesStatus
+  })
+
+  // Mark task as complete
+  const markTaskAsComplete = async (id: number) => {
+    try {
+      // In a real application, you would call an API to update the task status
+      // For now, we'll just update the local state
+      setTasks(
+        tasks.map((task) =>
+          task.id === id ? { ...task, status: task.status === "Completed" ? "In Progress" : "Completed" } : task,
+        ),
+      )
+
+      toast({
+        title: "Success",
+        description: "Task status updated successfully!",
+      })
+    } catch (error) {
+      console.error("Error updating task status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update task status. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Calculate statistics
@@ -95,6 +136,15 @@ export default function MyTasksPage() {
   const completedTasks = tasks.filter((t) => t.status === "Completed").length
   const pendingTasks = tasks.filter((t) => t.status === "Pending").length
   const inProgressTasks = tasks.filter((t) => t.status === "In Progress").length
+
+  // Format date for display
+  const formatDeadline = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "yyyy/MM/dd")
+    } catch (error) {
+      return "Invalid date"
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -185,78 +235,86 @@ export default function MyTasksPage() {
           </Tabs>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Assigned By</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead className="text-left">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="font-medium">{task.title}</TableCell>
-                  <TableCell className="max-w-xs truncate">{task.description}</TableCell>
-                  <TableCell>{task.assignedBy}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={`${
-                        task.status === "Completed"
-                          ? "border-green-500 bg-green-50 text-green-700"
-                          : task.status === "In Progress"
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-yellow-500 bg-yellow-50 text-yellow-700"
-                      }`}
-                    >
-                      {task.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={`${
-                        task.priority === "High"
-                          ? "border-red-500 bg-red-50 text-red-700"
-                          : task.priority === "Medium"
-                            ? "border-yellow-500 bg-yellow-50 text-yellow-700"
-                            : "border-green-500 bg-green-50 text-green-700"
-                      }`}
-                    >
-                      {task.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{format(task.dueDate, "yyyy/MM/dd")}</TableCell>
-                  <TableCell className="text-left">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => markTaskAsComplete(task.id)}>
-                          {task.status === "Completed" ? "Reopen Task" : "Mark as Completed"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2">Loading tasks...</span>
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No tasks found matching your criteria.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead className="text-left">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredTasks.map((task) => (
+                  <TableRow key={task.id}>
+                    <TableCell className="font-medium">{task.title}</TableCell>
+                    <TableCell className="max-w-xs truncate">{task.description}</TableCell>
+                    <TableCell>{task.department?.name || "Not specified"}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={`${
+                          task.status === "Completed"
+                            ? "border-green-500 bg-green-50 text-green-700"
+                            : task.status === "In Progress"
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-yellow-500 bg-yellow-50 text-yellow-700"
+                        }`}
+                      >
+                        {task.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={`${
+                          task.priority === "High"
+                            ? "border-red-500 bg-red-50 text-red-700"
+                            : task.priority === "Medium"
+                              ? "border-yellow-500 bg-yellow-50 text-yellow-700"
+                              : "border-green-500 bg-green-50 text-green-700"
+                        }`}
+                      >
+                        {task.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDeadline(task.deadline)}</TableCell>
+                    <TableCell className="text-left">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem>View Details</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => markTaskAsComplete(task.id)}>
+                            {task.status === "Completed" ? "Reopen Task" : "Mark as Completed"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
   )
 }
-

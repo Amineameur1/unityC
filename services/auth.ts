@@ -34,11 +34,29 @@ export interface User {
   username: string
 }
 
+// Test account credentials
+export const TEST_ACCOUNT = {
+  username: "test_user",
+  password: "test123",
+  userData: {
+    employee: 1,
+    company: 6,
+    department: 1,
+    role: "Admin",
+    username: "test_user",
+  },
+}
+
 // Mock authentication for production environment
 const mockAuth = {
   async login(credentials: LoginCredentials) {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 800))
+
+    // Check if using test account
+    if (credentials.username === TEST_ACCOUNT.username && credentials.password === TEST_ACCOUNT.password) {
+      return { user: TEST_ACCOUNT.userData, message: "Login successful (Test Account)" }
+    }
 
     // Simple validation
     if (credentials.username && credentials.password) {
@@ -120,6 +138,11 @@ const mockAuth = {
 const realAuth = {
   async login(credentials: LoginCredentials) {
     try {
+      // Check if using test account
+      if (credentials.username === TEST_ACCOUNT.username && credentials.password === TEST_ACCOUNT.password) {
+        return { user: TEST_ACCOUNT.userData, message: "Login successful (Test Account)" }
+      }
+
       const response = await api.post("/auth/login", credentials)
 
       // Store user info in localStorage for easy access
@@ -208,7 +231,7 @@ const authImplementation = isDevelopment ? realAuth : mockAuth
 
 const AuthService = {
   ...authImplementation,
+  TEST_ACCOUNT,
 }
 
 export default AuthService
-

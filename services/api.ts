@@ -137,7 +137,7 @@ export const departmentService = {
 
   async getSubDepartments(parentDepartmentId) {
     try {
-      const response = await api.get(`/department/parent/${parentDepartmentId}`)
+      const response = await api.get(`/subDepartment/${parentDepartmentId}`)
       return response.data // API returns array of sub-departments
     } catch (error) {
       throw error
@@ -145,3 +145,72 @@ export const departmentService = {
   },
 }
 
+// Updated announcement service with correct parameter order
+export const announcementService = {
+  async getAnnouncements() {
+    try {
+      const response = await api.get("/announcement")
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async createAnnouncement(data) {
+    try {
+      // Ensure correct parameter order based on the SQL query
+      const response = await api.post("/announcement", {
+        title: data.title,
+        content: data.content,
+        priority: data.priority,
+        departmentId: data.departmentId || null,
+      })
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async updateAnnouncement(announcementId, departmentId, data) {
+    try {
+      const response = await api.put(`/announcement/${announcementId}?departmentId=${departmentId || ""}`, {
+        title: data.title,
+        content: data.content,
+        priority: data.priority,
+        departmentId: data.departmentId || null,
+      })
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async deleteAnnouncement(announcementId, departmentId) {
+    try {
+      const response = await api.delete(`/announcement/${announcementId}?departmentId=${departmentId || ""}`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+
+  async getEmployeeAnnouncements(employeeId, departmentId) {
+    try {
+      const response = await api.get(`/announcement/employee/${employeeId}?departmentId=${departmentId || ""}`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+}
+
+export const employeeService = {
+  async getActiveEmployees(companyId: number) {
+    try {
+      const response = await api.get(`/employee/company/${companyId}`)
+      return response.data.employees
+    } catch (error) {
+      throw error
+    }
+  },
+}

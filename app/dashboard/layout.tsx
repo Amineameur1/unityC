@@ -6,9 +6,6 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
-  BarChart3,
-  Bell,
-  Building2,
   ChevronDown,
   ClipboardList,
   FileBox,
@@ -17,16 +14,11 @@ import {
   Menu,
   MessageSquare,
   Package,
-  Search,
   Settings,
   Users,
   X,
   Layers,
   Shield,
-  FileText,
-  DollarSign,
-  PieChart,
-  Database,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -36,12 +28,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/components/auth-provider"
 
 export default function DashboardLayout({
   children,
@@ -52,6 +43,7 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const router = useRouter()
   const { toast } = useToast()
+  const { user, logout } = useAuth() // Get the authenticated user and logout function
 
   // User state
   const [currentUser, setCurrentUser] = useState<{
@@ -98,12 +90,7 @@ export default function DashboardLayout({
   const handleLogout = async () => {
     try {
       // Use the auth context's logout function
-      // await logout();  // Assuming logout function is available in this scope.  Needs to be imported or defined.
-
-      // Remove user data from local storage
-      localStorage.removeItem("user")
-      localStorage.removeItem("token")
-      localStorage.removeItem("authRedirectPath")
+      await logout()
 
       // Show success message
       toast({
@@ -127,108 +114,73 @@ export default function DashboardLayout({
     }
   }
 
-  // Define menu items based on user role
+  // Update the navItems array to remove Companies, Performance, and Administration items
+
+  // Replace the current navItems array with this updated version:
   const navItems = [
     {
       title: "Dashboard",
       href: "/dashboard",
       icon: <Home className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager", "Employee"],
-    },
-    {
-      title: "Companies",
-      href: "/dashboard/companies",
-      icon: <Building2 className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager"],
+      roles: ["Owner", "Admin", "Employee"],
     },
     {
       title: "Departments",
       href: "/dashboard/departments",
       icon: <Layers className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager"],
+      roles: ["Owner", "Admin"], // Removed Employee from here
     },
     {
       title: "Employees",
       href: "/dashboard/employees",
       icon: <Users className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager"],
+      roles: ["Owner", "Admin"],
     },
     {
       title: "Tasks",
       href: "/dashboard/tasks",
       icon: <ClipboardList className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager", "Employee"],
+      roles: ["Owner", "Admin", "Employee"],
     },
     {
       title: "Resources",
       href: "/dashboard/resources",
       icon: <Package className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager"],
+      roles: ["Owner", "Admin"], // Removed Employee from here
     },
     {
       title: "Files",
       href: "/dashboard/files",
       icon: <FileBox className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager", "Employee"],
+      roles: ["Owner", "Admin"], // Removed Employee from here
     },
     {
       title: "Announcements",
       href: "/dashboard/announcements",
       icon: <MessageSquare className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager", "Employee"],
-    },
-    {
-      title: "Performance",
-      href: "/dashboard/performance",
-      icon: <BarChart3 className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager"],
-    },
-    // Owner-specific items
-    {
-      title: "Audit Logs",
-      href: "/dashboard/audit-logs",
-      icon: <FileText className="h-5 w-5" />,
-      roles: ["Owner"],
-    },
-    {
-      title: "Salaries",
-      href: "/dashboard/salaries",
-      icon: <DollarSign className="h-5 w-5" />,
-      roles: ["Owner"],
-    },
-    {
-      title: "Analytics",
-      href: "/dashboard/analytics",
-      icon: <PieChart className="h-5 w-5" />,
-      roles: ["Owner"],
-    },
-    {
-      title: "System Settings",
-      href: "/dashboard/system-settings",
-      icon: <Database className="h-5 w-5" />,
-      roles: ["Owner"],
+      roles: ["Owner", "Admin", "Employee"],
     },
     {
       title: "Settings",
       href: "/dashboard/settings",
       icon: <Settings className="h-5 w-5" />,
-      roles: ["Owner", "Company Manager", "Department Manager", "Employee"],
+      roles: ["Owner", "Admin", "Employee"],
     },
   ]
 
   // Filter menu items based on user role
   const filteredNavItems = navItems.filter((item) => {
-    // If the user is Owner, show all Owner items
+    // إذا كان المستخدم Owner، أظهر جميع العناصر المخصصة للمالك
     if (currentUser.role === "Owner" && item.roles.includes("Owner")) {
       return true
     }
 
-    // If the user is Admin/Department Manager, show appropriate items
+    // إذا كان المستخدم Admin، أظهر العناصر المخصصة للمسؤول
     if (currentUser.role === "Admin" && item.roles.includes("Admin")) {
       return true
     }
 
-    // If the user is Employee, only show Employee items
+    // إذا كان المستخدم Employee، أظهر فقط العناصر المخصصة للموظف
     if (currentUser.role === "Employee" && item.roles.includes("Employee")) {
       return true
     }
@@ -236,23 +188,10 @@ export default function DashboardLayout({
     return false
   })
 
-  // Group navigation items by category for better organization
-  const mainNavItems = filteredNavItems.filter(
-    (item) =>
-      ![
-        "/dashboard/audit-logs",
-        "/dashboard/salaries",
-        "/dashboard/analytics",
-        "/dashboard/system-settings",
-        "/dashboard/settings",
-      ].includes(item.href),
-  )
-
-  const adminNavItems = filteredNavItems.filter((item) =>
-    ["/dashboard/audit-logs", "/dashboard/salaries", "/dashboard/analytics", "/dashboard/system-settings"].includes(
-      item.href,
-    ),
-  )
+  // Remove the adminNavItems array and related code by replacing the filtering logic:
+  // Replace this section:
+  const mainNavItems = filteredNavItems
+  const adminNavItems = [] // Empty array since we're removing the Administration section
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-900">
@@ -299,29 +238,7 @@ export default function DashboardLayout({
                   </div>
                 </div>
 
-                {adminNavItems.length > 0 && (
-                  <div className="px-4 py-3">
-                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Administration
-                    </h4>
-                    <div className="grid gap-1">
-                      {adminNavItems.map((item, index) => (
-                        <Link
-                          key={index}
-                          href={item.href}
-                          onClick={() => setOpen(false)}
-                          className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted",
-                            pathname === item.href ? "bg-muted font-medium" : "transparent",
-                          )}
-                        >
-                          {item.icon}
-                          <span>{item.title}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Administration section removed */}
 
                 <div className="px-4 py-3">
                   <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">User</h4>
@@ -359,68 +276,55 @@ export default function DashboardLayout({
           </div>
           <span className="hidden md:inline">EnterpriseOS</span>
         </Link>
-        <div className="relative ml-auto flex-1 md:grow-0 md:w-80">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input type="search" placeholder="Search..." className="w-full rounded-full bg-background pl-8 md:w-80" />
+
+        {/* Remove the search bar that was here */}
+
+        {/* Remove the notifications button that was here */}
+
+        <div className="ml-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src="/placeholder.svg?height=32&width=32" alt={currentUser.name} />
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {currentUser.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="hidden flex-col items-start md:flex">
+                  <span className="text-sm font-medium">{currentUser.name}</span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    {currentUser.role === "Owner" && <Shield className="h-3 w-3 text-primary" />}
+                    {currentUser.role}
+                  </span>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Link href="/dashboard/settings/profile" className="flex w-full items-center">
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/dashboard/settings" className="flex w-full items-center">
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              {/* System Settings option removed */}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-500">
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        <Button variant="ghost" size="icon" className="relative mr-auto md:mr-0">
-          <Bell className="h-5 w-5" />
-          <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-            3
-          </Badge>
-          <span className="sr-only">Notifications</span>
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="gap-2 rounded-full">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder.svg?height=32&width=32" alt={currentUser.name} />
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {currentUser.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden flex-col items-start md:flex">
-                <span className="text-sm font-medium">{currentUser.name}</span>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  {currentUser.role === "Owner" && <Shield className="h-3 w-3 text-primary" />}
-                  {currentUser.role}
-                </span>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Link href="/dashboard/settings/profile" className="flex w-full items-center">
-                Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Link href="/dashboard/settings" className="flex w-full items-center">
-                Settings
-              </Link>
-            </DropdownMenuItem>
-            {currentUser.role === "Owner" && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Link href="/dashboard/system-settings" className="flex w-full items-center">
-                    System Settings
-                  </Link>
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-500">
-              Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </header>
       <div className="flex flex-1">
         <aside className="hidden w-64 border-r bg-background md:block">
@@ -447,28 +351,7 @@ export default function DashboardLayout({
                 </div>
               </div>
 
-              {adminNavItems.length > 0 && (
-                <div className="px-3 py-2 mt-2">
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2">
-                    Administration
-                  </h4>
-                  <div className="grid gap-1 pt-1">
-                    {adminNavItems.map((item, index) => (
-                      <Link
-                        key={index}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted",
-                          pathname === item.href ? "bg-muted font-medium" : "transparent",
-                        )}
-                      >
-                        {item.icon}
-                        <span>{item.title}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Administration section removed */}
             </div>
 
             <div className="border-t px-3 py-4">
@@ -498,4 +381,3 @@ export default function DashboardLayout({
     </div>
   )
 }
-

@@ -31,6 +31,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 
+// إضافة استخدام مكون المصادقة
+import { useAuth } from "@/components/auth-provider"
+
 // Sample resource data
 const initialResources = [
   {
@@ -124,6 +127,10 @@ const initialResources = [
 ]
 
 export default function ResourcesPage() {
+  // داخل المكون الرئيسي، أضف:
+  const { user } = useAuth()
+  const userRole = user?.role || "Employee" // افتراضي كموظف إذا لم يتم تحديد الدور
+
   const [resources, setResources] = useState(initialResources)
   const [searchQuery, setSearchQuery] = useState("")
   const [newResource, setNewResource] = useState({
@@ -138,6 +145,11 @@ export default function ResourcesPage() {
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [date, setDate] = useState<Date | undefined>(new Date())
+
+  // تعديل الدالة لإضافة التحقق من الصلاحيات
+  const canCreateResource = userRole === "Owner" || userRole === "Admin"
+  const canUpdateResource = userRole === "Owner" || userRole === "Admin"
+  const canDeleteResource = userRole === "Owner"
 
   const filteredResources = resources.filter(
     (resource) =>
@@ -207,149 +219,151 @@ export default function ResourcesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Resources</h1>
           <p className="text-muted-foreground">Manage and track all resources across your organization</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Resource
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[525px]">
-            <DialogHeader>
-              <DialogTitle>Add New Resource</DialogTitle>
-              <DialogDescription>Add a new resource to your inventory.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Resource Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={newResource.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter resource name"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="type">Type</Label>
-                  <Select value={newResource.type} onValueChange={(value) => handleSelectChange("type", value)}>
-                    <SelectTrigger id="type">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Hardware">Hardware</SelectItem>
-                      <SelectItem value="Software">Software</SelectItem>
-                      <SelectItem value="Furniture">Furniture</SelectItem>
-                      <SelectItem value="Service">Service</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    name="category"
-                    value={newResource.category}
-                    onChange={handleInputChange}
-                    placeholder="Enter category"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={newResource.status} onValueChange={(value) => handleSelectChange("status", value)}>
-                    <SelectTrigger id="status">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Available">Available</SelectItem>
-                      <SelectItem value="Allocated">Allocated</SelectItem>
-                      <SelectItem value="Maintenance">Maintenance</SelectItem>
-                      <SelectItem value="Retired">Retired</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="value">Value ($)</Label>
-                  <Input
-                    id="value"
-                    name="value"
-                    type="number"
-                    value={newResource.value.toString()}
-                    onChange={handleInputChange}
-                    placeholder="Enter value"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="purchaseDate">Purchase Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              {newResource.status === "Allocated" && (
-                <>
-                  <div className="grid gap-2">
-                    <Label htmlFor="assignedTo">Assigned To</Label>
-                    <Select
-                      value={newResource.assignedTo}
-                      onValueChange={(value) => handleSelectChange("assignedTo", value)}
-                    >
-                      <SelectTrigger id="assignedTo">
-                        <SelectValue placeholder="Select employee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="John Smith">John Smith</SelectItem>
-                        <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
-                        <SelectItem value="Michael Brown">Michael Brown</SelectItem>
-                        <SelectItem value="Emily Davis">Emily Davis</SelectItem>
-                        <SelectItem value="David Wilson">David Wilson</SelectItem>
-                        <SelectItem value="Jessica Martinez">Jessica Martinez</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Select
-                      value={newResource.department}
-                      onValueChange={(value) => handleSelectChange("department", value)}
-                    >
-                      <SelectTrigger id="department">
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Engineering">Engineering</SelectItem>
-                        <SelectItem value="Marketing">Marketing</SelectItem>
-                        <SelectItem value="Finance">Finance</SelectItem>
-                        <SelectItem value="Human Resources">Human Resources</SelectItem>
-                        <SelectItem value="Sales">Sales</SelectItem>
-                        <SelectItem value="Facilities">Facilities</SelectItem>
-                        <SelectItem value="Office Management">Office Management</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
+        {canCreateResource && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-1">
+                <Plus className="h-4 w-4" />
+                Add Resource
               </Button>
-              <Button onClick={handleAddResource}>Add Resource</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[525px]">
+              <DialogHeader>
+                <DialogTitle>Add New Resource</DialogTitle>
+                <DialogDescription>Add a new resource to your inventory.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Resource Name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={newResource.name}
+                    onChange={handleInputChange}
+                    placeholder="Enter resource name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="type">Type</Label>
+                    <Select value={newResource.type} onValueChange={(value) => handleSelectChange("type", value)}>
+                      <SelectTrigger id="type">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Hardware">Hardware</SelectItem>
+                        <SelectItem value="Software">Software</SelectItem>
+                        <SelectItem value="Furniture">Furniture</SelectItem>
+                        <SelectItem value="Service">Service</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      name="category"
+                      value={newResource.category}
+                      onChange={handleInputChange}
+                      placeholder="Enter category"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select value={newResource.status} onValueChange={(value) => handleSelectChange("status", value)}>
+                      <SelectTrigger id="status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Available">Available</SelectItem>
+                        <SelectItem value="Allocated">Allocated</SelectItem>
+                        <SelectItem value="Maintenance">Maintenance</SelectItem>
+                        <SelectItem value="Retired">Retired</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="value">Value ($)</Label>
+                    <Input
+                      id="value"
+                      name="value"
+                      type="number"
+                      value={newResource.value.toString()}
+                      onChange={handleInputChange}
+                      placeholder="Enter value"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="purchaseDate">Purchase Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                {newResource.status === "Allocated" && (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="assignedTo">Assigned To</Label>
+                      <Select
+                        value={newResource.assignedTo}
+                        onValueChange={(value) => handleSelectChange("assignedTo", value)}
+                      >
+                        <SelectTrigger id="assignedTo">
+                          <SelectValue placeholder="Select employee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="John Smith">John Smith</SelectItem>
+                          <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
+                          <SelectItem value="Michael Brown">Michael Brown</SelectItem>
+                          <SelectItem value="Emily Davis">Emily Davis</SelectItem>
+                          <SelectItem value="David Wilson">David Wilson</SelectItem>
+                          <SelectItem value="Jessica Martinez">Jessica Martinez</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Select
+                        value={newResource.department}
+                        onValueChange={(value) => handleSelectChange("department", value)}
+                      >
+                        <SelectTrigger id="department">
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Engineering">Engineering</SelectItem>
+                          <SelectItem value="Marketing">Marketing</SelectItem>
+                          <SelectItem value="Finance">Finance</SelectItem>
+                          <SelectItem value="Human Resources">Human Resources</SelectItem>
+                          <SelectItem value="Sales">Sales</SelectItem>
+                          <SelectItem value="Facilities">Facilities</SelectItem>
+                          <SelectItem value="Office Management">Office Management</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddResource}>Add Resource</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
@@ -510,16 +524,19 @@ export default function ResourcesPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit Resource</DropdownMenuItem>
-                        {resource.status === "Available" ? (
+                        {canUpdateResource && <DropdownMenuItem>Edit Resource</DropdownMenuItem>}
+                        {canUpdateResource && resource.status === "Available" && (
                           <DropdownMenuItem>Allocate</DropdownMenuItem>
-                        ) : resource.status === "Allocated" ? (
+                        )}
+                        {canUpdateResource && resource.status === "Allocated" && (
                           <DropdownMenuItem>Deallocate</DropdownMenuItem>
-                        ) : null}
+                        )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                          {resource.status !== "Retired" ? "Mark as Retired" : "Delete"}
-                        </DropdownMenuItem>
+                        {canDeleteResource && (
+                          <DropdownMenuItem className="text-red-600">
+                            {resource.status !== "Retired" ? "Mark as Retired" : "Delete"}
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -532,4 +549,3 @@ export default function ResourcesPage() {
     </div>
   )
 }
-

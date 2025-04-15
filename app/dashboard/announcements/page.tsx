@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  Bell,
   MessageSquare,
   MoreHorizontal,
   Plus,
@@ -37,149 +36,17 @@ import {
   CheckCircle2,
   Users,
   Building2,
-  Package,
-  Settings,
   Loader2,
+  Trash2,
+  Edit,
+  ArrowDownUp,
 } from "lucide-react"
 import { format } from "date-fns"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
 
-// Sample announcement data
-const initialAnnouncements = [
-  {
-    id: 1,
-    title: "Quarterly Company Meeting",
-    content:
-      "Please join us for the Q2 company meeting on Friday, June 30th at 2:00 PM in the main conference room. We will be discussing our quarterly results and upcoming initiatives.",
-    author: "Emily Davis",
-    department: "Human Resources",
-    priority: "Normal",
-    createdAt: "2023-06-25T12:00:00Z",
-    updatedAt: "2023-06-25T12:00:00Z",
-    target: "Company",
-  },
-  {
-    id: 2,
-    title: "Office Closure - Independence Day",
-    content:
-      "The office will be closed on Tuesday, July 4th in observance of Independence Day. Regular operations will resume on Wednesday, July 5th.",
-    author: "Emily Davis",
-    department: "Human Resources",
-    priority: "Important",
-    createdAt: "2023-06-28T10:30:00Z",
-    updatedAt: "2023-06-28T10:30:00Z",
-    target: "Company",
-  },
-  {
-    id: 3,
-    title: "New Product Launch",
-    content:
-      "We're excited to announce the launch of our new product line on July 15th. Please review the marketing materials and be prepared to discuss with clients.",
-    author: "Sarah Johnson",
-    department: "Marketing",
-    priority: "High",
-    createdAt: "2023-07-01T09:15:00Z",
-    updatedAt: "2023-07-01T09:15:00Z",
-    target: "Department",
-  },
-  {
-    id: 4,
-    title: "System Maintenance",
-    content:
-      "The IT department will be performing system maintenance this weekend. The CRM system will be unavailable from Saturday 8 PM to Sunday 2 AM.",
-    author: "John Smith",
-    department: "Engineering",
-    priority: "Important",
-    createdAt: "2023-07-05T14:20:00Z",
-    updatedAt: "2023-07-05T14:20:00Z",
-    target: "Company",
-  },
-  {
-    id: 5,
-    title: "New Hire Announcement",
-    content:
-      "Please join us in welcoming Jane Doe to the Marketing team. Jane will be joining us as a Senior Marketing Manager starting next Monday.",
-    author: "Emily Davis",
-    department: "Human Resources",
-    priority: "Normal",
-    createdAt: "2023-07-07T11:45:00Z",
-    updatedAt: "2023-07-07T11:45:00Z",
-    target: "Department",
-  },
-  {
-    id: 6,
-    title: "Urgent: Security Alert",
-    content:
-      "We have detected suspicious login attempts. Please change your passwords immediately and enable two-factor authentication if you haven't already.",
-    author: "David Wilson",
-    department: "Engineering",
-    priority: "Critical",
-    createdAt: "2023-07-02T16:30:00Z",
-    updatedAt: "2023-07-02T16:30:00Z",
-    target: "Company",
-  },
-]
-
-// Sample notification data
-const initialNotifications = [
-  {
-    id: 1,
-    title: "New task assigned",
-    content: "You have been assigned a new task: 'Q2 Financial Report'",
-    type: "Task",
-    date: new Date(2023, 5, 28),
-    read: false,
-  },
-  {
-    id: 2,
-    title: "Meeting reminder",
-    content: "Quarterly Company Meeting in 30 minutes",
-    type: "Reminder",
-    date: new Date(2023, 5, 30),
-    read: false,
-  },
-  {
-    id: 3,
-    title: "Performance review completed",
-    content: "Your performance review has been completed by David Wilson",
-    type: "Performance",
-    date: new Date(2023, 5, 27),
-    read: true,
-  },
-  {
-    id: 4,
-    title: "Resource allocated",
-    content: "New laptop has been allocated to you",
-    type: "Resource",
-    date: new Date(2023, 5, 26),
-    read: true,
-  },
-  {
-    id: 5,
-    title: "New announcement",
-    content: "Office Closure - Independence Day",
-    type: "Announcement",
-    date: new Date(2023, 5, 28),
-    read: false,
-  },
-  {
-    id: 6,
-    title: "Task deadline approaching",
-    content: "Task 'Website Redesign Meeting' is due tomorrow",
-    type: "Alert",
-    date: new Date(2023, 5, 29),
-    read: false,
-  },
-  {
-    id: 7,
-    title: "System update completed",
-    content: "The CRM system has been updated to version 2.5",
-    type: "System",
-    date: new Date(2023, 5, 25),
-    read: true,
-  },
-]
+// Import auth provider
+import { useAuth } from "@/components/auth-provider"
+import { announcementService } from "@/services/api"
 
 // Interface for announcement
 interface Announcement {
@@ -188,217 +55,273 @@ interface Announcement {
   title: string
   content: string
   priority: string
-  author?: string
-  department?: string
-  date?: Date
-  target?: string
+  departmentId?: number | null
+  employeeId?: number
   createdAt: string
   updatedAt: string
-  companyId?: number
+  department?: {
+    name?: string
+  } | null
+  employee?: {
+    firstName: string
+    lastName: string
+  }
+}
+
+// Interface for editing announcement
+interface EditAnnouncementData {
+  id: number
+  title: string
+  content: string
+  priority: string
+  departmentId?: number | null
 }
 
 export default function AnnouncementsPage() {
   const { toast } = useToast()
-  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements)
-  const [notifications, setNotifications] = useState(initialNotifications)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
     content: "",
-    priority: "Normal",
+    priority: "Medium",
+    departmentId: null as number | null,
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [activeTab, setActiveTab] = useState("announcements")
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editAnnouncement, setEditAnnouncement] = useState<EditAnnouncementData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  // Simulate API loading with mock data
+  const [priorityFilter, setPriorityFilter] = useState("all")
+  const [targetFilter, setTargetFilter] = useState("company")
+  const [sortOrder, setSortOrder] = useState("newest")
+
+  // Get user from auth context
+  const { user } = useAuth()
+  const userRole = user?.role || "Employee" // Default as employee if role not specified
+
+  // Check permissions
+  const canCreateAnnouncement = userRole === "Owner" || userRole === "Admin"
+  const canUpdateAnnouncement = userRole === "Owner" || userRole === "Admin"
+  const canDeleteAnnouncement = userRole === "Owner" || userRole === "Admin"
+
+  // Fetch announcements from API
   useEffect(() => {
-    // Simulate API loading delay
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-      toast({
-        title: "Mock Data Loaded",
-        description: "Using sample data since the API server is not available.",
-        variant: "default",
-      })
-    }, 1500)
+    const fetchAnnouncements = async () => {
+      setIsLoading(true)
+      try {
+        let data
 
-    return () => clearTimeout(timer)
-  }, [toast])
+        // Use different endpoints based on user role
+        if (userRole === "Owner") {
+          // Owners can see all announcements
+          data = await announcementService.getAnnouncements()
+        } else {
+          // Admins and Employees use the employee-specific endpoint
+          const employeeId = user?.employee || 11 // Default to 11 if not available
+          const departmentId = user?.department || 3 // Default to 3 if not available
 
-  const filteredAnnouncements = announcements.filter(
-    (announcement) =>
-      announcement.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      announcement.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (announcement.author && announcement.author.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (announcement.department && announcement.department.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
+          // Call the employee-specific endpoint
+          data = await announcementService.getEmployeeAnnouncements(employeeId, departmentId)
+        }
 
-  const filteredNotifications = notifications.filter(
-    (notification) =>
-      notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      notification.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      notification.type.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+        setAnnouncements(data)
+      } catch (error) {
+        console.error("Failed to fetch announcements:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load announcements. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAnnouncements()
+  }, [toast, user, userRole])
+
+  const filteredAnnouncements = announcements
+    .filter((announcement) => {
+      // Text search filter
+      const matchesSearch =
+        announcement.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        announcement.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (announcement.employee &&
+          `${announcement.employee.firstName} ${announcement.employee.lastName}`
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase())) ||
+        (announcement.department?.name &&
+          announcement.department.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
+      // Priority filter
+      const matchesPriority = priorityFilter === "all" || announcement.priority === priorityFilter
+
+      // Target filter (company-wide or department-specific)
+      const matchesTarget =
+        targetFilter === "company" ? announcement.departmentId === null : announcement.departmentId !== null
+
+      return matchesSearch && matchesPriority && matchesTarget
+    })
+    .sort((a, b) => {
+      // Sort by date
+      const dateA = new Date(a.createdAt).getTime()
+      const dateB = new Date(b.createdAt).getTime()
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB
+    })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setNewAnnouncement((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (!editAnnouncement) return
+    const { name, value } = e.target
+    setEditAnnouncement((prev) => (prev ? { ...prev, [name]: value } : null))
+  }
+
   const handleSelectChange = (name: string, value: string) => {
     setNewAnnouncement((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      setDate(date)
-    }
+  const handleEditSelectChange = (name: string, value: string) => {
+    if (!editAnnouncement) return
+    setEditAnnouncement((prev) => (prev ? { ...prev, [name]: value } : null))
   }
 
   const handleAddAnnouncement = async () => {
     setIsSubmitting(true)
 
-    // Simulate API delay
-    setTimeout(() => {
-      try {
-        // Create a new announcement with mock data
-        const newId = Math.max(...announcements.map((a) => a.id)) + 1
-        const mockAnnouncement: Announcement = {
-          id: newId,
-          title: newAnnouncement.title,
-          content: newAnnouncement.content,
-          priority: newAnnouncement.priority,
-          author: "Current User",
-          department: "Your Department",
-          target: "Company",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
+    try {
+      const response = await announcementService.createAnnouncement(newAnnouncement)
 
-        // Add the new announcement to the state
-        setAnnouncements((prev) => [...prev, mockAnnouncement])
+      // Add the new announcement to the state
+      setAnnouncements((prev) => [...prev, response])
 
-        // Reset form
-        setNewAnnouncement({
-          title: "",
-          content: "",
-          priority: "Normal",
-        })
+      // Reset form
+      setNewAnnouncement({
+        title: "",
+        content: "",
+        priority: "Medium",
+        departmentId: null,
+      })
 
-        toast({
-          title: "Success",
-          description: "Announcement created successfully! (Mock data)",
-        })
+      toast({
+        title: "Success",
+        description: "Announcement created successfully!",
+      })
 
-        setIsDialogOpen(false)
-      } catch (error) {
-        console.error("Failed to create announcement:", error)
-        toast({
-          title: "Error",
-          description: "Failed to create announcement. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsSubmitting(false)
-      }
-    }, 1000) // Simulate 1 second delay
+      setIsDialogOpen(false)
+    } catch (error) {
+      console.error("Failed to create announcement:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create announcement. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const markNotificationAsRead = (id: number) => {
-    setNotifications(
-      notifications.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
-    )
+  const handleUpdateAnnouncement = async () => {
+    if (!editAnnouncement) return
+
+    setIsSubmitting(true)
+
+    try {
+      const response = await announcementService.updateAnnouncement(
+        editAnnouncement.id,
+        editAnnouncement.departmentId || 0,
+        editAnnouncement,
+      )
+
+      // Update the announcement in the state
+      setAnnouncements((prev) =>
+        prev.map((announcement) => (announcement.id === editAnnouncement.id ? response : announcement)),
+      )
+
+      toast({
+        title: "Success",
+        description: "Announcement updated successfully!",
+      })
+
+      setIsEditDialogOpen(false)
+      setEditAnnouncement(null)
+    } catch (error) {
+      console.error("Failed to update announcement:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update announcement. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const markAllNotificationsAsRead = () => {
-    setNotifications(notifications.map((notification) => ({ ...notification, read: true })))
+  const handleDeleteAnnouncement = async (id: number, departmentId?: number | null) => {
+    setIsDeleting(true)
+
+    try {
+      await announcementService.deleteAnnouncement(id, departmentId || 0)
+
+      // Remove the announcement from the state
+      setAnnouncements((prev) => prev.filter((announcement) => announcement.id !== id))
+
+      toast({
+        title: "Success",
+        description: "Announcement deleted successfully!",
+      })
+    } catch (error) {
+      console.error("Failed to delete announcement:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete announcement. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const openEditDialog = (announcement: Announcement) => {
+    setEditAnnouncement({
+      id: announcement.id,
+      title: announcement.title,
+      content: announcement.content,
+      priority: announcement.priority,
+      departmentId: announcement.departmentId || null,
+    })
+    setIsEditDialogOpen(true)
   }
 
   // Calculate statistics
   const totalAnnouncements = announcements.length
-  const companyAnnouncements = announcements.filter((a) => a.target === "Company").length
-  const departmentAnnouncements = announcements.filter((a) => a.target === "Department").length
-  const unreadNotifications = notifications.filter((n) => !n.read).length
+  const companyAnnouncements = announcements.filter((a) => a.departmentId === null).length
+  const departmentAnnouncements = announcements.filter((a) => a.departmentId !== null).length
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
-      case "Critical":
-        return <AlertTriangle className="h-5 w-5 text-red-500" />
       case "High":
-        return <AlertTriangle className="h-5 w-5 text-orange-500" />
-      case "Important":
-        return <Info className="h-5 w-5 text-blue-500" />
-      case "Normal":
+        return <AlertTriangle className="h-5 w-5 text-red-500" />
+      case "Medium":
+        return <Info className="h-5 w-5 text-orange-500" />
+      case "Low":
         return <CheckCircle2 className="h-5 w-5 text-green-500" />
       default:
         return <Info className="h-5 w-5 text-muted-foreground" />
     }
   }
 
-  const getTargetIcon = (target: string) => {
-    switch (target) {
-      case "Company":
-        return <Building2 className="h-5 w-5 text-primary" />
-      case "Department":
-        return <Users className="h-5 w-5 text-primary" />
-      default:
-        return <Users className="h-5 w-5 text-muted-foreground" />
-    }
-  }
-
-  const getNotificationTypeIcon = (type: string) => {
-    switch (type) {
-      case "Task":
-        return (
-          <div className="rounded-full bg-blue-500 p-2">
-            <CheckCircle2 className="h-4 w-4 text-white" />
-          </div>
-        )
-      case "Reminder":
-        return (
-          <div className="rounded-full bg-yellow-500 p-2">
-            <Bell className="h-4 w-4 text-white" />
-          </div>
-        )
-      case "Performance":
-        return (
-          <div className="rounded-full bg-green-500 p-2">
-            <Users className="h-4 w-4 text-white" />
-          </div>
-        )
-      case "Resource":
-        return (
-          <div className="rounded-full bg-purple-500 p-2">
-            <Package className="h-4 w-4 text-white" />
-          </div>
-        )
-      case "Announcement":
-        return (
-          <div className="rounded-full bg-indigo-500 p-2">
-            <MessageSquare className="h-4 w-4 text-white" />
-          </div>
-        )
-      case "Alert":
-        return (
-          <div className="rounded-full bg-red-500 p-2">
-            <AlertTriangle className="h-4 w-4 text-white" />
-          </div>
-        )
-      case "System":
-        return (
-          <div className="rounded-full bg-gray-500 p-2">
-            <Settings className="h-4 w-4 text-white" />
-          </div>
-        )
-      default:
-        return (
-          <div className="rounded-full bg-primary p-2">
-            <Info className="h-4 w-4 text-white" />
-          </div>
-        )
+  const getTargetIcon = (departmentId: number | null | undefined) => {
+    if (departmentId === null || departmentId === undefined) {
+      return <Building2 className="h-5 w-5 text-primary" />
+    } else {
+      return <Users className="h-5 w-5 text-primary" />
     }
   }
 
@@ -412,91 +335,200 @@ export default function AnnouncementsPage() {
     <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Announcements & Notifications</h1>
-          <p className="text-muted-foreground">Manage company announcements and view your notifications</p>
+          <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
+          <p className="text-muted-foreground">Manage company announcements</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              New Announcement
-            </Button>
-          </DialogTrigger>
+        {canCreateAnnouncement && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-1">
+                <Plus className="h-4 w-4" />
+                New Announcement
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[525px]">
+              <DialogHeader>
+                <DialogTitle>Create New Announcement</DialogTitle>
+                <DialogDescription>Create a new announcement for your organization.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    value={newAnnouncement.title}
+                    onChange={handleInputChange}
+                    placeholder="Enter announcement title"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="content">Content</Label>
+                  <Textarea
+                    id="content"
+                    name="content"
+                    value={newAnnouncement.content}
+                    onChange={handleInputChange}
+                    placeholder="Enter announcement content"
+                    rows={5}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select
+                    value={newAnnouncement.priority}
+                    onValueChange={(value) => handleSelectChange("priority", value)}
+                  >
+                    <SelectTrigger id="priority">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">Low</SelectItem>
+                      <SelectItem value="Medium">Medium</SelectItem>
+                      <SelectItem value="High">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddAnnouncement} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    "Publish"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Edit Announcement Dialog */}
+      {editAnnouncement && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[525px]">
             <DialogHeader>
-              <DialogTitle>Create New Announcement</DialogTitle>
-              <DialogDescription>Create a new announcement for your organization.</DialogDescription>
+              <DialogTitle>Edit Announcement</DialogTitle>
+              <DialogDescription>Update the announcement details.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="title">Title</Label>
+                <Label htmlFor="edit-title">Title</Label>
                 <Input
-                  id="title"
+                  id="edit-title"
                   name="title"
-                  value={newAnnouncement.title}
-                  onChange={handleInputChange}
+                  value={editAnnouncement.title}
+                  onChange={handleEditInputChange}
                   placeholder="Enter announcement title"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="content">Content</Label>
+                <Label htmlFor="edit-content">Content</Label>
                 <Textarea
-                  id="content"
+                  id="edit-content"
                   name="content"
-                  value={newAnnouncement.content}
-                  onChange={handleInputChange}
+                  value={editAnnouncement.content}
+                  onChange={handleEditInputChange}
                   placeholder="Enter announcement content"
                   rows={5}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="priority">Priority</Label>
+                <Label htmlFor="edit-priority">Priority</Label>
                 <Select
-                  value={newAnnouncement.priority}
-                  onValueChange={(value) => handleSelectChange("priority", value)}
+                  value={editAnnouncement.priority}
+                  onValueChange={(value) => handleEditSelectChange("priority", value)}
                 >
-                  <SelectTrigger id="priority">
+                  <SelectTrigger id="edit-priority">
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Normal">Normal</SelectItem>
-                    <SelectItem value="Important">Important</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
                     <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Critical">Critical</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button onClick={handleAddAnnouncement} disabled={isSubmitting}>
+              <Button onClick={handleUpdateAnnouncement} disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Publishing...
+                    Updating...
                   </>
                 ) : (
-                  "Publish"
+                  "Update"
                 )}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-      <div className="flex items-center gap-4">
+      )}
+
+      <div className="flex flex-col gap-4 md:flex-row md:items-end">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search..."
+            placeholder="Search announcements..."
             className="w-full pl-8"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline">Filter</Button>
+        <div className="flex flex-wrap gap-2">
+          <Select defaultValue="all" onValueChange={(value) => setPriorityFilter(value)}>
+            <SelectTrigger className="w-[150px]">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                <SelectValue placeholder="Priority" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="Low">Low</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="High">High</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select defaultValue="company" onValueChange={(value) => setTargetFilter(value)}>
+            <SelectTrigger className="w-[180px]">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                <SelectValue placeholder="Target" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="company">Company-wide</SelectItem>
+              <SelectItem value="department">Department</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select defaultValue="newest" onValueChange={(value) => setSortOrder(value)}>
+            <SelectTrigger className="w-[150px]">
+              <div className="flex items-center gap-2">
+                <ArrowDownUp className="h-4 w-4" />
+                <SelectValue placeholder="Sort By" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -529,149 +561,88 @@ export default function AnnouncementsPage() {
             <p className="text-xs text-muted-foreground">Department-specific announcements</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Unread Notifications</CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{unreadNotifications}</div>
-            <p className="text-xs text-muted-foreground">Notifications awaiting your attention</p>
-          </CardContent>
-        </Card>
       </div>
-      <Tabs defaultValue="announcements" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-        </TabsList>
-        <TabsContent value="announcements" className="mt-4 space-y-4">
-          {isLoading ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <Loader2 className="h-10 w-10 text-muted-foreground mb-4 animate-spin" />
-                <p className="text-muted-foreground text-center">Loading announcements...</p>
-              </CardContent>
-            </Card>
-          ) : filteredAnnouncements.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground text-center">No announcements found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredAnnouncements.map((announcement) => (
-              <Card key={announcement.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-2">
-                      {getPriorityIcon(announcement.priority)}
-                      <div>
-                        <CardTitle>{announcement.title}</CardTitle>
-                        <CardDescription>
-                          {announcement.createdAt ? formatDate(announcement.createdAt) : "No date"}
-                          {announcement.author && ` • ${announcement.author}`}
-                          {announcement.department && ` • ${announcement.department}`}
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {announcement.target && getTargetIcon(announcement.target)}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>Pin to Top</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+
+      <Card>
+        {isLoading ? (
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <Loader2 className="h-10 w-10 text-muted-foreground mb-4 animate-spin" />
+            <p className="text-muted-foreground text-center">Loading announcements...</p>
+          </CardContent>
+        ) : filteredAnnouncements.length === 0 ? (
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">No announcements found</p>
+          </CardContent>
+        ) : (
+          filteredAnnouncements.map((announcement) => (
+            <Card key={announcement.id}>
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-2">
+                    {getPriorityIcon(announcement.priority)}
+                    <div>
+                      <CardTitle>{announcement.title}</CardTitle>
+                      <CardDescription>
+                        {announcement.createdAt ? formatDate(announcement.createdAt) : "No date"}
+                        {announcement.employee &&
+                          ` • ${announcement.employee.firstName} ${announcement.employee.lastName}`}
+                        {announcement.department?.name && ` • ${announcement.department.name}`}
+                      </CardDescription>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm">{announcement.content}</p>
-                </CardContent>
-                <CardFooter className="flex justify-between pt-0">
-                  <div className="text-xs text-muted-foreground">
-                    {announcement.target === "Company"
-                      ? "Visible to all employees"
-                      : announcement.department
-                        ? `Visible to ${announcement.department} department`
-                        : "Visibility not specified"}
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    Read More
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))
-          )}
-        </TabsContent>
-        <TabsContent value="notifications" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle>Your Notifications</CardTitle>
-                <Button variant="ghost" size="sm" onClick={markAllNotificationsAsRead}>
-                  Mark all as read
-                </Button>
-              </div>
-              <CardDescription>You have {unreadNotifications} unread notifications</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {filteredNotifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10">
-                  <Bell className="h-10 w-10 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground text-center">No notifications found</p>
-                </div>
-              ) : (
-                filteredNotifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`flex items-start gap-4 rounded-lg border p-4 ${
-                      !notification.read ? "bg-muted/50" : ""
-                    }`}
-                  >
-                    {getNotificationTypeIcon(notification.type)}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="text-sm font-semibold">{notification.title}</h4>
-                          <p className="text-sm text-muted-foreground">{notification.content}</p>
-                        </div>
-                        {!notification.read && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => markNotificationAsRead(notification.id)}
-                          >
-                            <span className="sr-only">Mark as read</span>
-                            <div className="h-2 w-2 rounded-full bg-primary" />
-                          </Button>
+                  <div className="flex items-center gap-2">
+                    {getTargetIcon(announcement.departmentId)}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {canUpdateAnnouncement && (
+                          <DropdownMenuItem onClick={() => openEditDialog(announcement)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
                         )}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {format(notification.date, "MMMM d, yyyy • h:mm a")}
-                      </div>
-                    </div>
+                        <DropdownMenuSeparator />
+                        {canDeleteAnnouncement && (
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleDeleteAnnouncement(announcement.id, announcement.departmentId)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{announcement.content}</p>
+              </CardContent>
+              <CardFooter className="flex justify-between pt-0">
+                <div className="text-xs text-muted-foreground">
+                  {announcement.departmentId === null
+                    ? "Visible to all employees"
+                    : announcement.department?.name
+                      ? `Visible to ${announcement.department.name} department`
+                      : "Visibility not specified"}
+                </div>
+                <Button variant="ghost" size="sm">
+                  Read More
+                </Button>
+              </CardFooter>
+            </Card>
+          ))
+        )}
+      </Card>
     </div>
   )
 }
-

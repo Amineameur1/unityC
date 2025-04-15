@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+
+// إضافة استخدام مكون المصادقة
+import { useAuth } from "@/components/auth-provider"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
 
 // Sample salary data
 const initialSalaries = [
@@ -157,6 +162,29 @@ export default function SalariesPage() {
   const [companyFilter, setCompanyFilter] = useState("all")
   const [sortField, setSortField] = useState("employee")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+
+  // داخل المكون الرئيسي، أضف:
+  const { user } = useAuth()
+  const userRole = user?.role || "Employee" // افتراضي كموظف إذا لم يتم تحديد الدور
+  const router = useRouter()
+  const { toast } = useToast()
+
+  // تعديل الدالة لإضافة التحقق من الصلاحيات
+  const canViewSalaries = userRole === "Owner"
+  const canUpdateSalaries = userRole === "Owner"
+
+  // إضافة تحقق من الصلاحيات في بداية المكون
+  useEffect(() => {
+    // إذا لم يكن المستخدم مالكاً، قم بتوجيهه إلى لوحة التحكم
+    if (!canViewSalaries) {
+      router.push("/dashboard")
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view salary information",
+        variant: "destructive",
+      })
+    }
+  }, [canViewSalaries, router, toast])
 
   // Get unique departments and companies for filters
   const departments = [...new Set(salaries.map((s) => s.department))]
@@ -384,7 +412,7 @@ export default function SalariesPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit Salary</DropdownMenuItem>
+                        {canUpdateSalaries && <DropdownMenuItem>Edit Salary</DropdownMenuItem>}
                         <DropdownMenuItem>Salary History</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>Performance Review</DropdownMenuItem>
@@ -400,4 +428,3 @@ export default function SalariesPage() {
     </div>
   )
 }
-

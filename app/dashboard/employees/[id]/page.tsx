@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -7,21 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import {
-  ArrowLeft,
-  Mail,
-  Phone,
-  Building2,
-  Briefcase,
-  Calendar,
-  Shield,
-  Loader2,
-  AlertTriangle,
-  Pencil,
-} from "lucide-react"
+import { ArrowLeft, Mail, Phone, Building2, Briefcase, Calendar, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchWithAuth } from "@/services/api-client"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Loader2, Pencil, Shield } from "lucide-react"
 
 interface EmployeeRole {
   id: number
@@ -81,6 +83,13 @@ export default function EmployeeDetailsPage() {
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>("Owner") // Mocked user role
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false)
+  const [isCreatingUser, setIsCreatingUser] = useState(false)
+  const [userData, setUserData] = useState({
+    username: "",
+    password: "",
+  })
 
   useEffect(() => {
     const fetchEmployeeDetails = async () => {
@@ -148,6 +157,64 @@ export default function EmployeeDetailsPage() {
     })
   }
 
+  const handleUserInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setUserData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleCreateUser = async () => {
+    if (!userData.username || !userData.password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsCreatingUser(true)
+    try {
+      const response = await fetch("/api/employees/register-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: {
+            username: userData.username,
+            password: userData.password,
+            employeeId: employee.id,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create user account")
+      }
+
+      const data = await response.json()
+      toast({
+        title: "Success",
+        description: "User account created successfully!",
+      })
+      setIsUserDialogOpen(false)
+      setUserData({
+        username: "",
+        password: "",
+      })
+    } catch (error: any) {
+      console.error("Error creating user account:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user account. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCreatingUser(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 p-6 md:gap-8 md:p-8">
       <div className="flex items-center gap-4">
@@ -161,12 +228,18 @@ export default function EmployeeDetailsPage() {
           <p className="text-muted-foreground">View detailed information about this employee</p>
         </div>
         <div className="ml-auto">
-          <Button asChild>
+          <Button asChild className="mr-2">
             <Link href={`/dashboard/employees/${employee.id}/edit`}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit Employee
             </Link>
           </Button>
+          {userRole === "Owner" && (
+            <Button onClick={() => setIsUserDialogOpen(true)}>
+              <Shield className="h-4 w-4 mr-2" />
+              Create User Account
+            </Button>
+          )}
         </div>
       </div>
 
@@ -180,7 +253,7 @@ export default function EmployeeDetailsPage() {
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
                 <AvatarImage
-                  src={`/placeholder.svg?height=80&width=80`}
+                  src={`/placeholder-graphic.png?key=x23uz&key=2s34h&height=80&width=80`}
                   alt={`${employee.firstName} ${employee.lastName}`}
                 />
                 <AvatarFallback className="text-lg">
@@ -305,7 +378,57 @@ export default function EmployeeDetailsPage() {
           </CardContent>
         </Card>
       </div>
+      {/* User Account Creation Dialog */}
+      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create User Account</DialogTitle>
+            <DialogDescription>
+              Create a user account for {employee?.firstName} {employee?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                name="username"
+                value={userData.username}
+                onChange={handleUserInputChange}
+                placeholder="Enter username"
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={userData.password}
+                onChange={handleUserInputChange}
+                placeholder="Enter password"
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUserDialogOpen(false)} disabled={isCreatingUser}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser} disabled={isCreatingUser}>
+              {isCreatingUser ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create User Account"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-

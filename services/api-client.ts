@@ -109,4 +109,3 @@ async function refreshAccessToken(): Promise<boolean> {
     return false
   }
 }
-

@@ -1,8 +1,8 @@
 "use client"
 
-import { DialogFooter } from "@/components/ui/dialog"
+import React from "react"
 
-import type React from "react"
+import { DialogFooter } from "@/components/ui/dialog"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -41,19 +41,15 @@ import {
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { departmentService } from "@/services/api"
+import { departmentService, employeeService } from "@/services/api"
 
-// Sample employees data for manager selection
-const employees = [
-  { id: 1, name: "David Wilson", position: "Lead Developer", department: "Engineering" },
-  { id: 2, name: "Sarah Johnson", position: "Marketing Manager", department: "Marketing" },
-  { id: 3, name: "Michael Brown", position: "Financial Analyst", department: "Finance" },
-  { id: 4, name: "Emily Davis", position: "HR Specialist", department: "Human Resources" },
-  { id: 5, name: "Jessica Martinez", position: "Sales Representative", department: "Sales" },
-  { id: 6, name: "Robert Taylor", position: "Product Manager", department: "Product" },
-  { id: 7, name: "Jennifer Anderson", position: "Support Specialist", department: "Customer Support" },
-  { id: 8, name: "Mohammed Abdullah", position: "IT Manager", department: "IT" },
-]
+// Interface for employee data
+interface Employee {
+  id: number
+  name: string
+  position: string
+  department?: string
+}
 
 // Sample companies data
 const companies = [
@@ -85,6 +81,7 @@ interface Department {
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isCreateSubDialogOpen, setIsCreateSubDialogOpen] = useState(false)
@@ -94,6 +91,15 @@ export default function DepartmentsPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const { toast } = useToast()
   const { user } = useAuth() // Get the authenticated user
+  const userRole = user?.role || "Employee" // افتراضي كموظف إذا لم يتم تحديد الدور
+
+  // تعديل الدالة لإضافة التحقق من الصلاحيات
+  const canCreateDepartment = userRole === "Owner"
+  const canCreateSubDepartment = userRole === "Owner" || userRole === "Admin"
+  const canUpdateDepartment =
+    userRole === "Owner" || (userRole === "Admin" && currentDepartment?.manager === user?.name)
+  const canDeleteDepartment =
+    userRole === "Owner" || (userRole === "Admin" && currentDepartment?.parentDepartmentId !== null)
 
   // Get the user's company ID
   const userCompanyId = user?.company || 6 // Default to ID 6 if not available
@@ -110,6 +116,37 @@ export default function DepartmentsPage() {
     budget: "0",
     parentDepartmentId: "",
   })
+
+  // Fetch active employees for the company
+  const fetchActiveEmployees = async () => {
+    try {
+      const response = await employeeService.getActiveEmployees(userCompanyId)
+      console.log("Fetched active employees:", response)
+
+      // Format the employee data
+      const formattedEmployees = response.map((emp) => ({
+        id: emp.id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        position: emp.position || "Employee",
+        department: emp.departmentName,
+      }))
+
+      setEmployees(formattedEmployees)
+    } catch (error) {
+      console.error("Error fetching active employees:", error)
+      // Use sample data if API fails
+      setEmployees([
+        { id: 1, name: "David Wilson", position: "Lead Developer", department: "Engineering" },
+        { id: 2, name: "Sarah Johnson", position: "Marketing Manager", department: "Marketing" },
+        { id: 3, name: "Michael Brown", position: "Financial Analyst", department: "Finance" },
+        { id: 4, name: "Emily Davis", position: "HR Specialist", department: "Human Resources" },
+        { id: 5, name: "Jessica Martinez", position: "Sales Representative", department: "Sales" },
+        { id: 6, name: "Robert Taylor", position: "Product Manager", department: "Product" },
+        { id: 7, name: "Jennifer Anderson", position: "Support Specialist", department: "Customer Support" },
+        { id: 8, name: "Mohammed Abdullah", position: "IT Manager", department: "IT" },
+      ])
+    }
+  }
 
   // Handle input change for text fields
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -208,10 +245,11 @@ export default function DepartmentsPage() {
     }
   }
 
-  // Call fetchDepartments on component mount
+  // Call fetchDepartments and fetchActiveEmployees on component mount
   useEffect(() => {
     fetchDepartments()
-  }, [userCompanyName, toast])
+    fetchActiveEmployees()
+  }, [userCompanyId, toast])
 
   // Toggle department expansion to show/hide sub-departments
   const toggleDepartmentExpansion = (departmentId: number) => {
@@ -471,8 +509,8 @@ export default function DepartmentsPage() {
   }
 
   // Handle update department manager
-  const handleUpdateManager = () => {
-    if (!newDepartment.manager) {
+  const handleUpdateManager = async () => {
+    if (!currentDepartment || !newDepartment.manager) {
       toast({
         title: "Error",
         description: "Please select a manager for the department",
@@ -481,42 +519,49 @@ export default function DepartmentsPage() {
       return
     }
 
-    // In a real application, you would call an API to update the manager
-    // For now, we'll just update the local state
-
-    setDepartments((prevDepartments) => {
-      return prevDepartments.map((dept) => {
-        if (dept.id === currentDepartment?.id) {
-          return { ...dept, manager: newDepartment.manager }
-        }
-
-        // Also check and update in sub-departments if needed
-        if (dept.subDepartments && dept.subDepartments.length > 0) {
-          const updatedSubDepts = dept.subDepartments.map((subDept) =>
-            subDept.id === currentDepartment?.id ? { ...subDept, manager: newDepartment.manager } : subDept,
-          )
-          return { ...dept, subDepartments: updatedSubDepts }
-        }
-
-        return dept
+    try {
+      // Call API to update the department manager
+      const updatedDepartment = await departmentService.updateDepartmentManager(currentDepartment.id, {
+        manager: newDepartment.manager,
       })
-    })
 
-    setIsChangeManagerDialogOpen(false)
-    setCurrentDepartment(null)
-    setNewDepartment({
-      name: "",
-      description: "",
-      manager: "",
-      company: userCompanyName,
-      budget: "0",
-      parentDepartmentId: "",
-    })
+      console.log("Department manager updated:", updatedDepartment)
 
-    toast({
-      title: "Manager Changed",
-      description: "Department manager has been changed successfully",
-    })
+      // Refresh the departments list
+      await fetchDepartments()
+
+      setIsChangeManagerDialogOpen(false)
+      setCurrentDepartment(null)
+      setNewDepartment({
+        name: "",
+        description: "",
+        manager: "",
+        company: userCompanyName,
+        budget: "0",
+        parentDepartmentId: "",
+      })
+
+      toast({
+        title: "Manager Changed",
+        description: "Department manager has been changed successfully",
+      })
+    } catch (error) {
+      console.error("Error updating department manager:", error)
+
+      if (error instanceof Error) {
+        toast({
+          title: "Error",
+          description: `Error updating department manager: ${error.message}`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Unknown error occurred while updating department manager",
+          variant: "destructive",
+        })
+      }
+    }
   }
 
   // Handle delete department
@@ -567,167 +612,177 @@ export default function DepartmentsPage() {
           <p className="text-muted-foreground">Manage organization departments and department managers</p>
         </div>
         <div className="flex items-center gap-4">
-          <Dialog open={isCreateSubDialogOpen} onOpenChange={setIsCreateSubDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-1">
-                <Plus className="h-4 w-4" />
-                Add Sub-Department
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Sub-Department</DialogTitle>
-                <DialogDescription>Create a sub-department under an existing department</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="parentDepartmentId">Parent Department</Label>
-                  <Select
-                    value={newDepartment.parentDepartmentId}
-                    onValueChange={(value) => handleSelectChange("parentDepartmentId", value)}
-                  >
-                    <SelectTrigger id="parentDepartmentId">
-                      <SelectValue placeholder="Select parent department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id.toString()}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="sub-name">Sub-Department Name</Label>
-                  <Input
-                    id="sub-name"
-                    name="name"
-                    value={newDepartment.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter sub-department name"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="sub-description">Sub-Department Description</Label>
-                  <Textarea
-                    id="sub-description"
-                    name="description"
-                    value={newDepartment.description}
-                    onChange={handleInputChange}
-                    placeholder="Enter sub-department description"
-                    rows={3}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="sub-budget">Budget</Label>
-                  <Input
-                    id="sub-budget"
-                    name="budget"
-                    type="number"
-                    value={newDepartment.budget}
-                    onChange={handleInputChange}
-                    placeholder="Enter sub-department budget"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="sub-manager">Department Manager</Label>
-                  <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
-                    <SelectTrigger id="sub-manager">
-                      <SelectValue placeholder="Select department manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((employee) => (
-                        <SelectItem key={employee.id} value={employee.name}>
-                          {employee.name} - {employee.position}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateSubDialogOpen(false)}>
-                  Cancel
+          {canCreateSubDepartment && (
+            <Dialog open={isCreateSubDialogOpen} onOpenChange={setIsCreateSubDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-1">
+                  <Plus className="h-4 w-4" />
+                  Add Sub-Department
                 </Button>
-                <Button onClick={handleCreateSubDepartment}>Add Sub-Department</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Sub-Department</DialogTitle>
+                  <DialogDescription>Create a sub-department under an existing department</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="parentDepartmentId">Parent Department</Label>
+                    <Select
+                      value={newDepartment.parentDepartmentId}
+                      onValueChange={(value) => handleSelectChange("parentDepartmentId", value)}
+                    >
+                      <SelectTrigger id="parentDepartmentId">
+                        <SelectValue placeholder="Select parent department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id.toString()}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="sub-name">Sub-Department Name</Label>
+                    <Input
+                      id="sub-name"
+                      name="name"
+                      value={newDepartment.name}
+                      onChange={handleInputChange}
+                      placeholder="Enter sub-department name"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="sub-description">Sub-Department Description</Label>
+                    <Textarea
+                      id="sub-description"
+                      name="description"
+                      value={newDepartment.description}
+                      onChange={handleInputChange}
+                      placeholder="Enter sub-department description"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="sub-budget">Budget</Label>
+                    <Input
+                      id="sub-budget"
+                      name="budget"
+                      type="number"
+                      value={newDepartment.budget}
+                      onChange={handleInputChange}
+                      placeholder="Enter sub-department budget"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="sub-manager">Department Manager</Label>
+                    <Select
+                      value={newDepartment.manager}
+                      onValueChange={(value) => handleSelectChange("manager", value)}
+                    >
+                      <SelectTrigger id="sub-manager">
+                        <SelectValue placeholder="Select department manager" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.name}>
+                            {employee.name} - {employee.position}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsCreateSubDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateSubDepartment}>Add Sub-Department</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
 
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-1">
-                <Plus className="h-4 w-4" />
-                Add Department
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Department</DialogTitle>
-                <DialogDescription>Enter new department information</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Department Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={newDepartment.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter department name"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Department Description</Label>
-                  <Textarea
-                    id="description"
-                    name="description"
-                    value={newDepartment.description}
-                    onChange={handleInputChange}
-                    placeholder="Enter department description"
-                    rows={3}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="budget">Budget</Label>
-                  <Input
-                    id="budget"
-                    name="budget"
-                    type="number"
-                    value={newDepartment.budget}
-                    onChange={handleInputChange}
-                    placeholder="Enter department budget"
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="manager">Department Manager</Label>
-                  <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
-                    <SelectTrigger id="manager">
-                      <SelectValue placeholder="Select department manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((employee) => (
-                        <SelectItem key={employee.id} value={employee.name}>
-                          {employee.name} - {employee.position}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
+          {canCreateDepartment && (
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-1">
+                  <Plus className="h-4 w-4" />
+                  Add Department
                 </Button>
-                <Button onClick={handleCreateDepartment}>Add Department</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Department</DialogTitle>
+                  <DialogDescription>Enter new department information</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Department Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={newDepartment.name}
+                      onChange={handleInputChange}
+                      placeholder="Enter department name"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Department Description</Label>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      value={newDepartment.description}
+                      onChange={handleInputChange}
+                      placeholder="Enter department description"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="budget">Budget</Label>
+                    <Input
+                      id="budget"
+                      name="budget"
+                      type="number"
+                      value={newDepartment.budget}
+                      onChange={handleInputChange}
+                      placeholder="Enter department budget"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="manager">Department Manager</Label>
+                    <Select
+                      value={newDepartment.manager}
+                      onValueChange={(value) => handleSelectChange("manager", value)}
+                    >
+                      <SelectTrigger id="manager">
+                        <SelectValue placeholder="Select department manager" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.name}>
+                            {employee.name} - {employee.position}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateDepartment}>Add Department</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -816,8 +871,8 @@ export default function DepartmentsPage() {
             <TableBody>
               {filteredDepartments.length > 0 ? (
                 filteredDepartments.map((department) => (
-                  <>
-                    <TableRow key={department.id}>
+                  <React.Fragment key={department.id}>
+                    <TableRow>
                       <TableCell className="font-medium">
                         <div className="flex items-center">
                           <button
@@ -857,19 +912,25 @@ export default function DepartmentsPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleEditDepartment(department)}>
-                              Edit Department
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleChangeManager(department)}>
-                              Change Department Manager
-                            </DropdownMenuItem>
+                            {canUpdateDepartment && (
+                              <DropdownMenuItem onClick={() => handleEditDepartment(department)}>
+                                Edit Department
+                              </DropdownMenuItem>
+                            )}
+                            {canUpdateDepartment && (
+                              <DropdownMenuItem onClick={() => handleChangeManager(department)}>
+                                Change Department Manager
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => handleDeleteDepartment(department.id)}
-                            >
-                              Delete Department
-                            </DropdownMenuItem>
+                            {canDeleteDepartment && (
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDeleteDepartment(department.id)}
+                              >
+                                Delete Department
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -919,7 +980,7 @@ export default function DepartmentsPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                  </>
+                  </React.Fragment>
                 ))
               ) : (
                 <TableRow>
@@ -1042,4 +1103,3 @@ export default function DepartmentsPage() {
     </div>
   )
 }
-

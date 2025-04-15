@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { TEST_ACCOUNT } from "@/services/auth"
 
 export async function POST(request: Request) {
   try {
@@ -8,6 +9,16 @@ export async function POST(request: Request) {
     // Check if username and password are provided
     if (!body.username || !body.password) {
       return NextResponse.json({ error: "Username and password are required" }, { status: 400 })
+    }
+
+    // Check if using test account
+    if (body.username === TEST_ACCOUNT.username && body.password === TEST_ACCOUNT.password) {
+      return NextResponse.json({
+        user: TEST_ACCOUNT.userData,
+        accessToken: "test-access-token-" + Math.random().toString(36).substring(2),
+        refreshToken: "test-refresh-token-" + Math.random().toString(36).substring(2),
+        message: "Login successful (Test Account)",
+      })
     }
 
     // Try to forward the request to the local server
@@ -95,4 +106,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
-

@@ -33,6 +33,9 @@ import { format } from "date-fns"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
+// إضافة استخدام مكون المصادقة
+import { useAuth } from "@/components/auth-provider"
+
 // Sample performance data
 const initialPerformance = [
   {
@@ -134,6 +137,15 @@ const initialPerformance = [
 ]
 
 export default function PerformancePage() {
+  // داخل المكون الرئيسي، أضف:
+  const { user } = useAuth()
+  const userRole = user?.role || "Employee" // افتراضي كموظف إذا لم يتم تحديد الدور
+
+  // تعديل الدالة لإضافة التحقق من الصلاحيات
+  const canCreatePerformanceReview = userRole === "Owner" || userRole === "Admin"
+  const canUpdatePerformanceReview = userRole === "Owner" || userRole === "Admin"
+  const canDeletePerformanceReview = userRole === "Owner"
+
   const [performances, setPerformances] = useState(initialPerformance)
   const [searchQuery, setSearchQuery] = useState("")
   const [newPerformance, setNewPerformance] = useState({
@@ -226,187 +238,192 @@ export default function PerformancePage() {
           <h1 className="text-2xl font-bold tracking-tight">Performance & Salary</h1>
           <p className="text-muted-foreground">Manage employee performance reviews and salary information</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Review
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[525px]">
-            <DialogHeader>
-              <DialogTitle>Add Performance Review</DialogTitle>
-              <DialogDescription>Create a new performance review for an employee.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="employee">Employee</Label>
-                <Select
-                  value={newPerformance.employee}
-                  onValueChange={(value) => handleSelectChange("employee", value)}
-                >
-                  <SelectTrigger id="employee">
-                    <SelectValue placeholder="Select employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="John Smith">John Smith</SelectItem>
-                    <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
-                    <SelectItem value="Michael Brown">Michael Brown</SelectItem>
-                    <SelectItem value="Emily Davis">Emily Davis</SelectItem>
-                    <SelectItem value="David Wilson">David Wilson</SelectItem>
-                    <SelectItem value="Jessica Martinez">Jessica Martinez</SelectItem>
-                    <SelectItem value="Robert Taylor">Robert Taylor</SelectItem>
-                    <SelectItem value="Jennifer Anderson">Jennifer Anderson</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="position">Position</Label>
-                  <Input
-                    id="position"
-                    name="position"
-                    value={newPerformance.position}
-                    onChange={handleInputChange}
-                    placeholder="Enter position"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Select
-                    value={newPerformance.department}
-                    onValueChange={(value) => handleSelectChange("department", value)}
-                  >
-                    <SelectTrigger id="department">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Engineering">Engineering</SelectItem>
-                      <SelectItem value="Marketing">Marketing</SelectItem>
-                      <SelectItem value="Finance">Finance</SelectItem>
-                      <SelectItem value="Human Resources">Human Resources</SelectItem>
-                      <SelectItem value="Sales">Sales</SelectItem>
-                      <SelectItem value="Product">Product</SelectItem>
-                      <SelectItem value="Customer Support">Customer Support</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="rating">Rating (1-5)</Label>
-                  <Input
-                    id="rating"
-                    name="rating"
-                    type="number"
-                    min="1"
-                    max="5"
-                    step="0.1"
-                    value={newPerformance.rating.toString()}
-                    onChange={handleInputChange}
-                    placeholder="Enter rating"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={newPerformance.status} onValueChange={(value) => handleSelectChange("status", value)}>
-                    <SelectTrigger id="status">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Scheduled">Scheduled</SelectItem>
-                      <SelectItem value="Pending">Pending</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="reviewDate">Review Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="reviewedBy">Reviewed By</Label>
-                <Select
-                  value={newPerformance.reviewedBy}
-                  onValueChange={(value) => handleSelectChange("reviewedBy", value)}
-                >
-                  <SelectTrigger id="reviewedBy">
-                    <SelectValue placeholder="Select reviewer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="John Smith">John Smith</SelectItem>
-                    <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
-                    <SelectItem value="Michael Brown">Michael Brown</SelectItem>
-                    <SelectItem value="Emily Davis">Emily Davis</SelectItem>
-                    <SelectItem value="David Wilson">David Wilson</SelectItem>
-                    <SelectItem value="Jessica Martinez">Jessica Martinez</SelectItem>
-                    <SelectItem value="Robert Taylor">Robert Taylor</SelectItem>
-                    <SelectItem value="Jennifer Anderson">Jennifer Anderson</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="salary">Salary</Label>
-                  <Input
-                    id="salary"
-                    name="salary"
-                    type="number"
-                    value={newPerformance.salary.toString()}
-                    onChange={handleInputChange}
-                    placeholder="Enter salary"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="currency">Currency</Label>
-                  <Select
-                    value={newPerformance.currency}
-                    onValueChange={(value) => handleSelectChange("currency", value)}
-                  >
-                    <SelectTrigger id="currency">
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
-                      <SelectItem value="CAD">CAD</SelectItem>
-                      <SelectItem value="AUD">AUD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="comments">Comments</Label>
-                <Textarea
-                  id="comments"
-                  name="comments"
-                  value={newPerformance.comments}
-                  onChange={handleInputChange}
-                  placeholder="Enter review comments"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
+        {canCreatePerformanceReview && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-1">
+                <Plus className="h-4 w-4" />
+                Add Review
               </Button>
-              <Button onClick={handleAddPerformance}>Add Review</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[525px]">
+              <DialogHeader>
+                <DialogTitle>Add Performance Review</DialogTitle>
+                <DialogDescription>Create a new performance review for an employee.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="employee">Employee</Label>
+                  <Select
+                    value={newPerformance.employee}
+                    onValueChange={(value) => handleSelectChange("employee", value)}
+                  >
+                    <SelectTrigger id="employee">
+                      <SelectValue placeholder="Select employee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="John Smith">John Smith</SelectItem>
+                      <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
+                      <SelectItem value="Michael Brown">Michael Brown</SelectItem>
+                      <SelectItem value="Emily Davis">Emily Davis</SelectItem>
+                      <SelectItem value="David Wilson">David Wilson</SelectItem>
+                      <SelectItem value="Jessica Martinez">Jessica Martinez</SelectItem>
+                      <SelectItem value="Robert Taylor">Robert Taylor</SelectItem>
+                      <SelectItem value="Jennifer Anderson">Jennifer Anderson</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="position">Position</Label>
+                    <Input
+                      id="position"
+                      name="position"
+                      value={newPerformance.position}
+                      onChange={handleInputChange}
+                      placeholder="Enter position"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="department">Department</Label>
+                    <Select
+                      value={newPerformance.department}
+                      onValueChange={(value) => handleSelectChange("department", value)}
+                    >
+                      <SelectTrigger id="department">
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Engineering">Engineering</SelectItem>
+                        <SelectItem value="Marketing">Marketing</SelectItem>
+                        <SelectItem value="Finance">Finance</SelectItem>
+                        <SelectItem value="Human Resources">Human Resources</SelectItem>
+                        <SelectItem value="Sales">Sales</SelectItem>
+                        <SelectItem value="Product">Product</SelectItem>
+                        <SelectItem value="Customer Support">Customer Support</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="rating">Rating (1-5)</Label>
+                    <Input
+                      id="rating"
+                      name="rating"
+                      type="number"
+                      min="1"
+                      max="5"
+                      step="0.1"
+                      value={newPerformance.rating.toString()}
+                      onChange={handleInputChange}
+                      placeholder="Enter rating"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select
+                      value={newPerformance.status}
+                      onValueChange={(value) => handleSelectChange("status", value)}
+                    >
+                      <SelectTrigger id="status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Scheduled">Scheduled</SelectItem>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="reviewDate">Review Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="reviewedBy">Reviewed By</Label>
+                  <Select
+                    value={newPerformance.reviewedBy}
+                    onValueChange={(value) => handleSelectChange("reviewedBy", value)}
+                  >
+                    <SelectTrigger id="reviewedBy">
+                      <SelectValue placeholder="Select reviewer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="John Smith">John Smith</SelectItem>
+                      <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
+                      <SelectItem value="Michael Brown">Michael Brown</SelectItem>
+                      <SelectItem value="Emily Davis">Emily Davis</SelectItem>
+                      <SelectItem value="David Wilson">David Wilson</SelectItem>
+                      <SelectItem value="Jessica Martinez">Jessica Martinez</SelectItem>
+                      <SelectItem value="Robert Taylor">Robert Taylor</SelectItem>
+                      <SelectItem value="Jennifer Anderson">Jennifer Anderson</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="salary">Salary</Label>
+                    <Input
+                      id="salary"
+                      name="salary"
+                      type="number"
+                      value={newPerformance.salary.toString()}
+                      onChange={handleInputChange}
+                      placeholder="Enter salary"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="currency">Currency</Label>
+                    <Select
+                      value={newPerformance.currency}
+                      onValueChange={(value) => handleSelectChange("currency", value)}
+                    >
+                      <SelectTrigger id="currency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="GBP">GBP</SelectItem>
+                        <SelectItem value="CAD">CAD</SelectItem>
+                        <SelectItem value="AUD">AUD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="comments">Comments</Label>
+                  <Textarea
+                    id="comments"
+                    name="comments"
+                    value={newPerformance.comments}
+                    onChange={handleInputChange}
+                    placeholder="Enter review comments"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddPerformance}>Add Review</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
@@ -565,10 +582,14 @@ export default function PerformancePage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit Review</DropdownMenuItem>
-                        {performance.status !== "Completed" && <DropdownMenuItem>Complete Review</DropdownMenuItem>}
+                        {canUpdatePerformanceReview && <DropdownMenuItem>Edit Review</DropdownMenuItem>}
+                        {canUpdatePerformanceReview && performance.status !== "Completed" && (
+                          <DropdownMenuItem>Complete Review</DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">Delete Review</DropdownMenuItem>
+                        {canDeletePerformanceReview && (
+                          <DropdownMenuItem className="text-red-600">Delete Review</DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -581,4 +602,3 @@ export default function PerformancePage() {
     </div>
   )
 }
-

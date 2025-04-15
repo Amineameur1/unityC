@@ -190,4 +190,3 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
-

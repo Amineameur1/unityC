@@ -1,3 +1,5 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   BarChart,
@@ -16,14 +18,22 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 
+// إضافة استخدام مكون المصادقة
+import { useAuth } from "@/components/auth-provider"
+
 export default function DashboardPage() {
+  // داخل المكون الرئيسي، أضف:
+  const { user } = useAuth()
+  const userRole = user?.role || "Employee" // افتراضي كموظف إذا لم يتم تحديد الدور
+
   return (
     <div className="flex flex-col gap-6 p-6 md:gap-8 md:p-8">
+      {/* تعديل عنوان الصفحة ليعكس دور المستخدم */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">Owner Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{userRole} Dashboard</h1>
           <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-            <Shield className="h-3 w-3 mr-1" /> Owner Access
+            <Shield className="h-3 w-3 mr-1" /> {userRole} Access
           </Badge>
         </div>
         <p className="text-muted-foreground">Welcome to EnterpriseOS, here's an overview of your organization</p>
@@ -96,53 +106,55 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Owner-specific metrics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/20">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <div className="rounded-full bg-indigo-500/20 p-1">
-              <DollarSign className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">$1,245,890</div>
-            <div className="flex items-center gap-2">
-              <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+8.2%</span>
-              <span className="ml-1">from last quarter</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-rose-50 to-rose-100 dark:from-rose-950/50 dark:to-rose-900/20">
-            <CardTitle className="text-sm font-medium">System Health</CardTitle>
-            <div className="rounded-full bg-rose-500/20 p-1">
-              <Activity className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">98.7%</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
-              <span>Uptime this month</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-cyan-50 to-cyan-100 dark:from-cyan-950/50 dark:to-cyan-900/20">
-            <CardTitle className="text-sm font-medium">Audit Logs</CardTitle>
-            <div className="rounded-full bg-cyan-500/20 p-1">
-              <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">1,245</div>
-            <div className="flex items-center text-xs text-muted-foreground mt-1">
-              <span>Events in the last 7 days</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* تعديل عرض البطاقات الخاصة بالمالك فقط */}
+      {userRole === "Owner" && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="overflow-hidden border-none shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/20">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <div className="rounded-full bg-indigo-500/20 p-1">
+                <DollarSign className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">$1,245,890</div>
+              <div className="flex items-center gap-2">
+                <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
+                <span className="text-green-500 font-medium">+8.2%</span>
+                <span className="ml-1">from last quarter</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="overflow-hidden border-none shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-rose-50 to-rose-100 dark:from-rose-950/50 dark:to-rose-900/20">
+              <CardTitle className="text-sm font-medium">System Health</CardTitle>
+              <div className="rounded-full bg-rose-500/20 p-1">
+                <Activity className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">98.7%</div>
+              <div className="flex items-center text-xs text-muted-foreground mt-1">
+                <span>Uptime this month</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="overflow-hidden border-none shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-cyan-50 to-cyan-100 dark:from-cyan-950/50 dark:to-cyan-900/20">
+              <CardTitle className="text-sm font-medium">Audit Logs</CardTitle>
+              <div className="rounded-full bg-cyan-500/20 p-1">
+                <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">1,245</div>
+              <div className="flex items-center text-xs text-muted-foreground mt-1">
+                <span>Events in the last 7 days</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-7">
         <Card className="col-span-4 border-none shadow-md">
@@ -309,37 +321,39 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-md">
-          <CardHeader>
-            <CardTitle>Owner Actions</CardTitle>
-            <CardDescription>Quick access to important actions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                {
-                  title: "System Settings",
-                  icon: <Database className="h-5 w-5" />,
-                  href: "/dashboard/system-settings",
-                },
-                { title: "User Management", icon: <Users className="h-5 w-5" />, href: "/dashboard/users" },
-                { title: "Audit Logs", icon: <FileText className="h-5 w-5" />, href: "/dashboard/audit-logs" },
-                { title: "Salaries", icon: <DollarSign className="h-5 w-5" />, href: "/dashboard/salaries" },
-                { title: "Analytics", icon: <BarChart className="h-5 w-5" />, href: "/dashboard/analytics" },
-                { title: "Security", icon: <Shield className="h-5 w-5" />, href: "/dashboard/security" },
-              ].map((link, index) => (
-                <Link href={link.href} key={index}>
-                  <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3">
-                    <div className="rounded-full bg-primary/10 p-1">{link.icon}</div>
-                    <span>{link.title}</span>
-                  </Button>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* تعديل عرض قسم "Owner Actions" ليظهر فقط للمالك */}
+        {userRole === "Owner" && (
+          <Card className="border-none shadow-md">
+            <CardHeader>
+              <CardTitle>Owner Actions</CardTitle>
+              <CardDescription>Quick access to important actions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {
+                    title: "System Settings",
+                    icon: <Database className="h-5 w-5" />,
+                    href: "/dashboard/system-settings",
+                  },
+                  { title: "User Management", icon: <Users className="h-5 w-5" />, href: "/dashboard/users" },
+                  { title: "Audit Logs", icon: <FileText className="h-5 w-5" />, href: "/dashboard/audit-logs" },
+                  { title: "Salaries", icon: <DollarSign className="h-5 w-5" />, href: "/dashboard/salaries" },
+                  { title: "Analytics", icon: <BarChart className="h-5 w-5" />, href: "/dashboard/analytics" },
+                  { title: "Security", icon: <Shield className="h-5 w-5" />, href: "/dashboard/security" },
+                ].map((link, index) => (
+                  <Link href={link.href} key={index}>
+                    <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3">
+                      <div className="rounded-full bg-primary/10 p-1">{link.icon}</div>
+                      <span>{link.title}</span>
+                    </Button>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
 }
-

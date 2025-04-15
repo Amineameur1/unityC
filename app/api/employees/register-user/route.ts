@@ -3,15 +3,15 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    console.log("Employee registration request body:", body)
+    console.log("Employee user registration request body:", body)
 
     // Get all cookies from the request
     const cookieHeader = request.headers.get("cookie")
 
     // Try to forward the request to the local server
     try {
-      console.log("Forwarding employee registration request to http://localhost:5001/api/v1/registration/owner/user")
-      const response = await fetch("http://localhost:5001/api/v1/registration/owner/user", {
+      console.log("Forwarding employee user registration request to http://localhost:5001/api/v1/registration/user")
+      const response = await fetch("http://localhost:5001/api/v1/registration/user", {
         method: "POST",
         credentials: "include", // Include cookies
         headers: {
@@ -25,19 +25,19 @@ export async function POST(request: Request) {
         body: JSON.stringify(body),
       })
 
-      console.log("Employee registration response status:", response.status)
+      console.log("Employee user registration response status:", response.status)
 
       if (!response.ok) {
         const errorData = await response.json()
         console.error("Error from API:", errorData)
         return NextResponse.json(
-          { error: errorData.message || "Failed to register employee" },
+          { error: errorData.message || "Failed to register employee user" },
           { status: response.status },
         )
       }
 
       const data = await response.json()
-      console.log("Employee registration response data:", data)
+      console.log("Employee user registration response data:", data)
       return NextResponse.json(data)
     } catch (error) {
       console.error("Error forwarding to local API:", error)
@@ -45,25 +45,16 @@ export async function POST(request: Request) {
       // Return mock success response when the API is unavailable
       return NextResponse.json({
         success: true,
-        message: "Employee registered successfully",
-        employee: {
+        message: "Employee user registered successfully",
+        user: {
           id: Math.floor(Math.random() * 1000) + 10,
-          uuid: `mock-uuid-${Date.now()}`,
-          firstName: body.employee.firstName,
-          lastName: body.employee.lastName,
-          email: body.employee.email,
-          departmentId: body.employee.departmentId,
-          companyId: body.employee.companyId,
-          jobTitle: body.employee.jobTitle,
-          role: body.employee.role,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          username: body.user.username,
+          employeeId: body.user.employeeId,
         },
       })
     }
   } catch (error: any) {
-    console.error("Employee registration error:", error)
+    console.error("Employee user registration error:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

@@ -20,14 +20,6 @@ export default function AccountSettingsPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("account")
 
-  // Use client-side only code to get URL parameters
-  useEffect(() => {
-    const tabParam = new URLSearchParams(window.location.search).get("tab")
-    if (tabParam && ["account", "personal", "company", "notifications"].includes(tabParam)) {
-      setActiveTab(tabParam)
-    }
-  }, [])
-
   // Account information state
   const [accountData, setAccountData] = useState({
     username: "mohammed.abdullah",
@@ -35,6 +27,7 @@ export default function AccountSettingsPage() {
     language: "english",
     timezone: "UTC+3",
     twoFactorEnabled: true,
+    role: "Employee", // Add role property with default value
   })
 
   // Personal information state
@@ -71,6 +64,42 @@ export default function AccountSettingsPage() {
     announcements: true,
     systemUpdates: false,
   })
+
+  // Use client-side only code to get URL parameters
+  useEffect(() => {
+    const tabParam = new URLSearchParams(window.location.search).get("tab")
+    if (tabParam && ["account", "personal", "notifications"].includes(tabParam)) {
+      setActiveTab(tabParam)
+    } else if (tabParam === "company") {
+      // Only set company tab if user is not an employee
+      const userStr = localStorage.getItem("user")
+      let userRole = "Employee"
+
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr)
+          userRole = userData.role || "Employee"
+
+          // Update accountData with the role
+          setAccountData((prev) => ({
+            ...prev,
+            role: userRole,
+          }))
+
+          if (userRole !== "Employee") {
+            setActiveTab("company")
+          } else {
+            setActiveTab("account")
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error)
+          setActiveTab("account")
+        }
+      } else {
+        setActiveTab("account")
+      }
+    }
+  }, [])
 
   // Handle tab change and update URL
   const handleTabChange = (value: string) => {
@@ -172,12 +201,14 @@ export default function AccountSettingsPage() {
             >
               Personal Information
             </TabsTrigger>
-            <TabsTrigger
-              value="company"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              Company Information
-            </TabsTrigger>
+            {accountData.role !== "Employee" && (
+              <TabsTrigger
+                value="company"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                Company Information
+              </TabsTrigger>
+            )}
             <TabsTrigger
               value="notifications"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -380,116 +411,123 @@ export default function AccountSettingsPage() {
           </TabsContent>
 
           {/* Company Information Tab */}
-          <TabsContent value="company">
-            <Card>
-              <CardHeader className="pb-4 border-b">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
-                    <Building2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+          {accountData.role !== "Employee" && (
+            <TabsContent value="company">
+              <Card>
+                <CardHeader className="pb-4 border-b">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
+                      <Building2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <CardTitle>Company Information</CardTitle>
+                      <CardDescription>Manage your company details and information</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle>Company Information</CardTitle>
-                    <CardDescription>Manage your company details and information</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <form onSubmit={handleCompanySubmit}>
-                <CardContent className="space-y-6 pt-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="companyName">Company Name</Label>
-                    <Input
-                      id="companyName"
-                      name="companyName"
-                      value={companyData.companyName}
-                      onChange={handleCompanyChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
+                </CardHeader>
+                <form onSubmit={handleCompanySubmit}>
+                  <CardContent className="space-y-6 pt-6">
                     <div className="space-y-2">
-                      <Label htmlFor="industry">Industry</Label>
+                      <Label htmlFor="companyName">Company Name</Label>
                       <Input
-                        id="industry"
-                        name="industry"
-                        value={companyData.industry}
+                        id="companyName"
+                        name="companyName"
+                        value={companyData.companyName}
+                        onChange={handleCompanyChange}
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="industry">Industry</Label>
+                        <Input
+                          id="industry"
+                          name="industry"
+                          value={companyData.industry}
+                          onChange={handleCompanyChange}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="size">Company Size</Label>
+                        <Input id="size" name="size" value={companyData.size} onChange={handleCompanyChange} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        name="website"
+                        type="url"
+                        value={companyData.website}
                         onChange={handleCompanyChange}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="size">Company Size</Label>
-                      <Input id="size" name="size" value={companyData.size} onChange={handleCompanyChange} />
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="registrationNumber">Registration Number</Label>
+                        <Input
+                          id="registrationNumber"
+                          name="registrationNumber"
+                          value={companyData.registrationNumber}
+                          onChange={handleCompanyChange}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="taxId">Tax ID</Label>
+                        <Input id="taxId" name="taxId" value={companyData.taxId} onChange={handleCompanyChange} />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="website">Website</Label>
-                    <Input
-                      id="website"
-                      name="website"
-                      type="url"
-                      value={companyData.website}
-                      onChange={handleCompanyChange}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="registrationNumber">Registration Number</Label>
-                      <Input
-                        id="registrationNumber"
-                        name="registrationNumber"
-                        value={companyData.registrationNumber}
+                      <Label htmlFor="companyAddress">Company Address</Label>
+                      <Textarea
+                        id="companyAddress"
+                        name="address"
+                        value={companyData.address}
                         onChange={handleCompanyChange}
+                        rows={3}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="taxId">Tax ID</Label>
-                      <Input id="taxId" name="taxId" value={companyData.taxId} onChange={handleCompanyChange} />
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="companyPhone">Company Phone</Label>
+                        <Input
+                          id="companyPhone"
+                          name="phone"
+                          value={companyData.phone}
+                          onChange={handleCompanyChange}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="companyEmail">Company Email</Label>
+                        <Input
+                          id="companyEmail"
+                          name="email"
+                          type="email"
+                          value={companyData.email}
+                          onChange={handleCompanyChange}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="companyAddress">Company Address</Label>
-                    <Textarea
-                      id="companyAddress"
-                      name="address"
-                      value={companyData.address}
-                      onChange={handleCompanyChange}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="companyPhone">Company Phone</Label>
-                      <Input id="companyPhone" name="phone" value={companyData.phone} onChange={handleCompanyChange} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="companyEmail">Company Email</Label>
-                      <Input
-                        id="companyEmail"
-                        name="email"
-                        type="email"
-                        value={companyData.email}
+                      <Label htmlFor="description">Company Description</Label>
+                      <Textarea
+                        id="description"
+                        name="description"
+                        value={companyData.description}
                         onChange={handleCompanyChange}
+                        rows={4}
                       />
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Company Description</Label>
-                    <Textarea
-                      id="description"
-                      name="description"
-                      value={companyData.description}
-                      onChange={handleCompanyChange}
-                      rows={4}
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end border-t pt-6">
-                  <Button type="submit" size="lg">
-                    Save Company Information
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-          </TabsContent>
+                  </CardContent>
+                  <CardFooter className="flex justify-end border-t pt-6">
+                    <Button type="submit" size="lg">
+                      Save Company Information
+                    </Button>
+                  </CardFooter>
+                </form>
+              </Card>
+            </TabsContent>
+          )}
 
           {/* Notifications Tab */}
           <TabsContent value="notifications">
@@ -590,4 +628,3 @@ export default function AccountSettingsPage() {
     </div>
   )
 }
-
