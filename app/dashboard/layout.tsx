@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/components/ui/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuth } from "@/components/auth-provider"
+import { NotificationToast } from "@/components/notification-toast"
 
 export default function DashboardLayout({
   children,
@@ -122,7 +123,7 @@ export default function DashboardLayout({
       title: "Dashboard",
       href: "/dashboard",
       icon: <Home className="h-5 w-5" />,
-      roles: ["Owner", "Admin", "Employee"],
+      roles: ["Owner", "Admin"],
     },
     {
       title: "Departments",
@@ -279,9 +280,10 @@ export default function DashboardLayout({
 
         {/* Remove the search bar that was here */}
 
-        {/* Remove the notifications button that was here */}
+        {/* Add the notification component here */}
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationToast />
 
-        <div className="ml-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2 rounded-full">

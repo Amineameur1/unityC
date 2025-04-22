@@ -102,7 +102,7 @@ export default function AnnouncementsPage() {
   const { user } = useAuth()
   const userRole = user?.role || "Employee" // Default as employee if role not specified
 
-  // Check permissions
+  // Check permissions - Allow Admin to create/update/delete announcements
   const canCreateAnnouncement = userRole === "Owner" || userRole === "Admin"
   const canUpdateAnnouncement = userRole === "Owner" || userRole === "Admin"
   const canDeleteAnnouncement = userRole === "Owner" || userRole === "Admin"
@@ -119,12 +119,8 @@ export default function AnnouncementsPage() {
           // Owners can see all announcements
           data = await announcementService.getAnnouncements()
         } else {
-          // Admins and Employees use the employee-specific endpoint
-          const employeeId = user?.employee || 11 // Default to 11 if not available
-          const departmentId = user?.department || 3 // Default to 3 if not available
-
-          // Call the employee-specific endpoint
-          data = await announcementService.getEmployeeAnnouncements(employeeId, departmentId)
+          // Admins and Employees use the globals endpoint
+          data = await announcementService.getGlobalAnnouncements()
         }
 
         setAnnouncements(data)

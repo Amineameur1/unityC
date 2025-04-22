@@ -1,11 +1,7 @@
 "use client"
 
 import type React from "react"
-import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
 import { User, Shield, Palette, Key } from "lucide-react"
 
 export default function SettingsLayout({
@@ -41,7 +37,6 @@ export default function SettingsLayout({
 
   return (
     <div className="flex flex-col space-y-8 lg:flex-row lg:space-x-8 lg:space-y-0">
-    
       <div className="flex-1">{children}</div>
     </div>
   )

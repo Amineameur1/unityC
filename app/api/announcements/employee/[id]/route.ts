@@ -10,6 +10,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // Get all cookies from the request
     const cookieHeader = request.headers.get("cookie")
+    const authHeader = request.headers.get("Authorization")
 
     // Try to forward the request to the local server
     try {
@@ -25,10 +26,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
           headers: {
             "Content-Type": "application/json",
             ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-            // Forward authorization header if present
-            ...(request.headers.get("Authorization")
-              ? { Authorization: request.headers.get("Authorization") as string }
-              : {}),
+            ...(authHeader ? { Authorization: authHeader } : {}),
           },
         },
       )

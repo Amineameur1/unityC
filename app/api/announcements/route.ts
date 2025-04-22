@@ -2,19 +2,15 @@ import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
   try {
-    // Get the company ID from the URL
-    const url = new URL(request.url)
-    const companyId = url.searchParams.get("companyId") || "12" // Default to 12 if not provided
-
-    // Get all cookies and auth header from the request
+    // Get all cookies from the request
     const cookieHeader = request.headers.get("cookie")
     const authHeader = request.headers.get("Authorization")
 
     // Try to forward the request to the local server
     try {
-      console.log(`Forwarding request to http://localhost:5001/api/v1/department/company/${companyId}`)
+      console.log("Forwarding request to http://localhost:5001/api/v1/announcement")
 
-      const response = await fetch(`http://localhost:5001/api/v1/department/company/${companyId}`, {
+      const response = await fetch("http://localhost:5001/api/v1/announcement", {
         method: "GET",
         credentials: "include", // Include cookies
         headers: {
@@ -36,29 +32,43 @@ export async function GET(request: Request) {
       // Return mock data when the API is unavailable
       return NextResponse.json([
         {
-          id: 6,
-          uuid: "8b7f39bf-36be-4d9e-93fe-f9560dd05c1c",
-          name: "Engineering",
-          companyId: Number(companyId),
-          parentDepartmentId: 1,
-          budget: "20",
-          createdAt: "2025-04-05T20:37:22.374Z",
-          updatedAt: "2025-04-05T20:37:22.374Z",
+          id: 1,
+          uuid: "mock-uuid-1",
+          title: "Important Company Announcement",
+          content: "This is an important announcement for all employees.",
+          priority: "High",
+          departmentId: null,
+          employeeId: 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          employee: {
+            firstName: "Admin",
+            lastName: "User",
+          },
+          department: null,
         },
         {
-          id: 7,
-          uuid: "ae425acb-d0be-4f11-844c-63247756b161",
-          name: "Marketing",
-          companyId: Number(companyId),
-          parentDepartmentId: null,
-          budget: "34",
-          createdAt: "2025-04-15T08:54:33.733Z",
-          updatedAt: "2025-04-15T08:54:33.733Z",
+          id: 2,
+          uuid: "mock-uuid-2",
+          title: "Engineering Department Update",
+          content: "This is an update for the engineering department.",
+          priority: "Medium",
+          departmentId: 3,
+          employeeId: 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          employee: {
+            firstName: "Admin",
+            lastName: "User",
+          },
+          department: {
+            name: "Engineering",
+          },
         },
       ])
     }
   } catch (error: any) {
-    console.error("Error fetching departments:", error)
+    console.error("Error fetching announcements:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }
@@ -71,9 +81,9 @@ export async function POST(request: Request) {
 
     // Try to forward the request to the local server
     try {
-      console.log("Forwarding request to http://localhost:5001/api/v1/department")
+      console.log("Forwarding request to http://localhost:5001/api/v1/announcement")
 
-      const response = await fetch("http://localhost:5001/api/v1/department", {
+      const response = await fetch("http://localhost:5001/api/v1/announcement", {
         method: "POST",
         credentials: "include",
         headers: {
@@ -95,18 +105,24 @@ export async function POST(request: Request) {
 
       // Return mock data when the API is unavailable
       return NextResponse.json({
-        id: 8,
-        uuid: "mock-uuid-new-department",
-        name: body.name,
-        companyId: body.companyId,
-        parentDepartmentId: null,
-        budget: body.budget.toString(),
+        id: 3,
+        uuid: "mock-uuid-3",
+        title: body.title,
+        content: body.content,
+        priority: body.priority,
+        departmentId: body.departmentId,
+        employeeId: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        employee: {
+          firstName: "Admin",
+          lastName: "User",
+        },
+        department: body.departmentId ? { name: "Engineering" } : null,
       })
     }
   } catch (error: any) {
-    console.error("Error creating department:", error)
+    console.error("Error creating announcement:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

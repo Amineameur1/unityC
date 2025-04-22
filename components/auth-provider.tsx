@@ -137,10 +137,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // If user is logged in and trying to access login or register page
     if (user && (currentPath === "/login" || currentPath === "/register" || currentPath.startsWith("/register/"))) {
-      // Check for a saved path to return to
+      // For employees, redirect directly to tasks
+      if (user.role === "Employee") {
+        router.push("/dashboard/tasks/my-tasks")
+        return
+      }
+
+      // For other roles, check for a saved path to return to
       const redirectPath = localStorage.getItem("authRedirectPath") || "/dashboard"
       localStorage.removeItem("authRedirectPath") // Clear saved path after using it
       router.push(redirectPath)
+      return
+    }
+
+    // Redirect employees from dashboard root to tasks
+    if (user && user.role === "Employee" && currentPath === "/dashboard") {
+      router.push("/dashboard/tasks/my-tasks")
       return
     }
   }, [user, isLoading, pathname, router])
@@ -210,7 +222,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(data.user)
 
-      // Check for a saved redirect path
+      // For employees, redirect directly to tasks
+      if (data.user.role === "Employee") {
+        router.push("/dashboard/tasks/my-tasks")
+        return { success: true, user: data.user }
+      }
+
+      // For other roles, check for a saved redirect path
       const redirectPath = localStorage.getItem("authRedirectPath") || "/dashboard"
       localStorage.removeItem("authRedirectPath") // Clear the saved path after using it
 

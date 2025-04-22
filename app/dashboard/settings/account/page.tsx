@@ -182,8 +182,8 @@ export default function AccountSettingsPage() {
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Account Settings</h1>
-        <p className="text-muted-foreground">Manage your account, personal, and company information</p>
+        <h1 className="text-2xl font-bold tracking-tight">Account Settings</h1>
+        <p className="text-muted-foreground">Manage your account information and preferences</p>
       </div>
 
       <Suspense fallback={<div className="text-center p-4">Loading settings...</div>}>

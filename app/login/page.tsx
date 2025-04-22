@@ -92,6 +92,12 @@ export default function LoginPage() {
         description: "Welcome to the Enterprise Management System",
       })
 
+      // Redirect employees directly to tasks
+      if (data.user.role === "Employee") {
+        window.location.href = "/dashboard/tasks/my-tasks"
+        return
+      }
+
       // Save return path if it exists
       if (callbackUrl && callbackUrl !== "/dashboard") {
         localStorage.setItem("authRedirectPath", callbackUrl)

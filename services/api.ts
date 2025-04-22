@@ -65,140 +65,319 @@ api.interceptors.response.use(
 
 export default api
 
-// Updated departmentService with correct endpoints and response handling
+// Helper function to get auth headers with token
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token") || localStorage.getItem("accessToken")
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
+// Update the departmentService to use Next.js API routes instead of direct API calls
 export const departmentService = {
   async createDepartment(data) {
     try {
-      const response = await api.post("/department", {
-        name: data.name,
-        budget: Number.parseInt(data.budget),
-        companyId: data.companyId, // Include the company ID
+      // Use Next.js API route instead of direct API call
+      const response = await fetch("/api/departments", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: data.name,
+          budget: Number.parseInt(data.budget),
+          companyId: data.companyId,
+        }),
       })
-      return response.data
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create department")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error creating department:", error)
       throw error
     }
   },
 
   async createSubDepartment(data) {
     try {
-      const response = await api.post("/department/sub", {
-        name: data.name,
-        budget: Number.parseInt(data.budget),
-        parentDepartmentId: data.parentDepartmentId,
-        companyId: data.companyId, // Include the company ID
+      // Use Next.js API route instead of direct API call
+      const response = await fetch("/api/departments/sub", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: data.name,
+          budget: Number.parseInt(data.budget),
+          parentDepartmentId: data.parentDepartmentId,
+          companyId: data.companyId,
+        }),
       })
-      return response.data
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create sub-department")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error creating sub-department:", error)
       throw error
     }
   },
 
   async updateDepartment(departmentId, data) {
     try {
-      const response = await api.put(`/department/${departmentId}`, {
-        name: data.name,
-        budget: data.budget ? Number.parseInt(data.budget) : undefined,
-        parentDepartmentId: data.parentDepartmentId,
-        companyId: data.companyId, // Include the company ID if needed for validation
+      // Use Next.js API route instead of direct API call
+      const response = await fetch(`/api/departments/${departmentId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: data.name,
+          budget: data.budget ? Number.parseInt(data.budget) : undefined,
+          parentDepartmentId: data.parentDepartmentId,
+          companyId: data.companyId,
+        }),
       })
-      return response.data
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update department")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error updating department:", error)
       throw error
     }
   },
 
   async deleteDepartment(departmentId) {
     try {
-      const response = await api.delete(`/department/${departmentId}`)
-      return response.data
+      // Use Next.js API route instead of direct API call
+      const response = await fetch(`/api/departments/${departmentId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete department")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error deleting department:", error)
       throw error
     }
   },
 
   async getDepartments() {
     try {
-      const response = await api.get("/department")
-      return response.data // API returns array of departments directly
+      // Get the company ID from localStorage or another source
+      const companyId = localStorage.getItem("companyId") || 12 // Default to 12 if not available
+
+      // Use Next.js API route instead of direct API call
+      const response = await fetch(`/api/departments?companyId=${companyId}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch departments")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error fetching departments:", error)
       throw error
     }
   },
 
   async getDepartmentById(departmentId) {
     try {
-      const response = await api.get(`/department/${departmentId}`)
-      return response.data
+      // Use Next.js API route instead of direct API call
+      const response = await fetch(`/api/departments/${departmentId}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch department")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error fetching department:", error)
       throw error
     }
   },
 
   async getSubDepartments(parentDepartmentId) {
     try {
-      const response = await api.get(`/subDepartment/${parentDepartmentId}`)
-      return response.data // API returns array of sub-departments
+      // Use Next.js API route instead of direct API call
+      const response = await fetch(`/api/departments/sub/${parentDepartmentId}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch sub-departments")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error fetching sub-departments:", error)
+      throw error
+    }
+  },
+
+  async updateDepartmentManager(departmentId, data) {
+    try {
+      // Use Next.js API route instead of direct API call
+      const response = await fetch(`/api/departments/${departmentId}/manager`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          manager: data.manager,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update department manager")
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error updating department manager:", error)
       throw error
     }
   },
 }
 
-// Updated announcement service with correct parameter order
+// Updated announcement service to use Next.js API routes with token-based authentication
 export const announcementService = {
   async getAnnouncements() {
     try {
-      const response = await api.get("/announcement")
-      return response.data
+      const response = await fetch("/api/announcements", {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch announcements")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error fetching announcements:", error)
+      throw error
+    }
+  },
+
+  async getGlobalAnnouncements() {
+    try {
+      const response = await fetch("/api/announcements/globals", {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch global announcements")
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error fetching global announcements:", error)
       throw error
     }
   },
 
   async createAnnouncement(data) {
     try {
-      // Ensure correct parameter order based on the SQL query
-      const response = await api.post("/announcement", {
-        title: data.title,
-        content: data.content,
-        priority: data.priority,
-        departmentId: data.departmentId || null,
+      const response = await fetch("/api/announcements", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: data.title,
+          content: data.content,
+          priority: data.priority,
+          departmentId: data.departmentId || null,
+        }),
       })
-      return response.data
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create announcement")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error creating announcement:", error)
       throw error
     }
   },
 
   async updateAnnouncement(announcementId, departmentId, data) {
     try {
-      const response = await api.put(`/announcement/${announcementId}?departmentId=${departmentId || ""}`, {
-        title: data.title,
-        content: data.content,
-        priority: data.priority,
-        departmentId: data.departmentId || null,
+      const response = await fetch(`/api/announcements/${announcementId}?departmentId=${departmentId || ""}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: data.title,
+          content: data.content,
+          priority: data.priority,
+          departmentId: data.departmentId || null,
+        }),
       })
-      return response.data
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update announcement")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error updating announcement:", error)
       throw error
     }
   },
 
   async deleteAnnouncement(announcementId, departmentId) {
     try {
-      const response = await api.delete(`/announcement/${announcementId}?departmentId=${departmentId || ""}`)
-      return response.data
+      const response = await fetch(`/api/announcements/${announcementId}?departmentId=${departmentId || ""}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete announcement")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error deleting announcement:", error)
       throw error
     }
   },
 
   async getEmployeeAnnouncements(employeeId, departmentId) {
     try {
-      const response = await api.get(`/announcement/employee/${employeeId}?departmentId=${departmentId || ""}`)
-      return response.data
+      const response = await fetch(`/api/announcements/employee/${employeeId}?departmentId=${departmentId || ""}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch employee announcements")
+      }
+
+      return await response.json()
     } catch (error) {
+      console.error("Error fetching employee announcements:", error)
       throw error
     }
   },
@@ -207,9 +386,19 @@ export const announcementService = {
 export const employeeService = {
   async getActiveEmployees(companyId: number) {
     try {
-      const response = await api.get(`/employee/company/${companyId}`)
-      return response.data.employees
+      const response = await fetch(`/api/employees/company/${companyId}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch employees")
+      }
+
+      const data = await response.json()
+      return data.employees
     } catch (error) {
+      console.error("Error fetching employees:", error)
       throw error
     }
   },
