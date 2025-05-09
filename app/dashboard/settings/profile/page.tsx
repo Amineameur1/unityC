@@ -86,6 +86,7 @@ export default function ProfileSettingsPage() {
     bio: "",
     jobTitle: "",
     departmentName: "",
+    departmentId: 0,
     roleName: "",
     roleScope: "",
     companyName: "",
@@ -104,11 +105,24 @@ export default function ProfileSettingsPage() {
     setError(null)
 
     try {
-      // Get the current user ID from auth context
-      const userId = user?.employee || 19 // Default to 19 if not available
+      // Check if user is admin or employee
+      const isAdminOrEmployee = user?.role === "Admin" || user?.role === "Employee"
 
-      // Use apiClient instead of fetch to ensure tokens are included
-      const response = await apiClient.get(`/employee/${userId}`)
+      let response
+
+      if (isAdminOrEmployee) {
+        // Get employee ID and department ID from user context
+        const employeeId = user?.employee || 19 // Default to 19 if not available
+        const departmentId = user?.departmentId || 1 // Default to 1 if not available
+
+        // Use dynamic values in the API endpoint
+        response = await apiClient.get(`/employee/${employeeId}?departmentId=${departmentId}`)
+      } else {
+        // For other user types, use the original endpoint
+        const userId = user?.employee || 19 // Default to 19 if not available
+        response = await apiClient.get(`/employee/${userId}`)
+      }
+
       const userData: EmployeeData = response.data
 
       if (userData) {
@@ -121,6 +135,7 @@ export default function ProfileSettingsPage() {
           bio: "", // Not provided in API
           jobTitle: userData.jobTitle || "",
           departmentName: userData.department?.name || "",
+          departmentId: userData.departmentId || 0,
           roleName: userData.roles && userData.roles.length > 0 ? userData.roles[0].name : "",
           roleScope: userData.roles && userData.roles.length > 0 ? userData.roles[0].scope : "",
           companyName: userData.company?.name || "",
@@ -263,6 +278,10 @@ export default function ProfileSettingsPage() {
                   <div className="space-y-2">
                     <Label htmlFor="departmentName">Department</Label>
                     <Input id="departmentName" value={formData.departmentName} readOnly className="bg-gray-50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="departmentId">Department ID</Label>
+                    <Input id="departmentId" value={formData.departmentId.toString()} readOnly className="bg-gray-50" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="roleName">Role</Label>

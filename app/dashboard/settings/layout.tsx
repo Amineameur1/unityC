@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { usePathname } from "next/navigation"
-import { User, Shield, Palette, Key } from "lucide-react"
+import { User, Palette, Key } from "lucide-react"
 
 export default function SettingsLayout({
   children,
@@ -17,11 +17,6 @@ export default function SettingsLayout({
       title: "Profile",
       href: "/dashboard/settings/profile",
       icon: <User className="h-5 w-5" />,
-    },
-    {
-      title: "Account",
-      href: "/dashboard/settings/account",
-      icon: <Shield className="h-5 w-5" />,
     },
     {
       title: "Appearance",

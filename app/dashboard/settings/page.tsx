@@ -7,25 +7,8 @@ export default function SettingsIndexPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Get user role from localStorage
-    const userStr = localStorage.getItem("user")
-    let userRole = "Employee"
-
-    if (userStr) {
-      try {
-        const userData = JSON.parse(userStr)
-        userRole = userData.role || "Employee"
-      } catch (error) {
-        console.error("Error parsing user data:", error)
-      }
-    }
-
-    // Redirect based on role
-    if (userRole === "Employee") {
-      router.push("/dashboard/settings/account")
-    } else {
-      router.push("/dashboard/settings/profile")
-    }
+    // Redirect all users to profile page
+    router.push("/dashboard/settings/profile")
   }, [router])
 
   return (
