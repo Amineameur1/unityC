@@ -32,12 +32,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = () => {
       try {
-        const userStr = localStorage.getItem("user")
-        const storedAccessToken = localStorage.getItem("accessToken")
-        const storedRefreshToken = localStorage.getItem("refreshToken")
+        const userStr = sessionStorage.getItem("user")
+        const storedAccessToken = sessionStorage.getItem("accessToken") || sessionStorage.getItem("token")
+        const storedRefreshToken = sessionStorage.getItem("refreshToken")
+
+        console.log("Checking auth status...")
+        console.log(`User data in sessionStorage: ${userStr ? "Present" : "Not present"}`)
+        console.log(`Access token in sessionStorage: ${storedAccessToken ? "Present" : "Not present"}`)
+        console.log(`Refresh token in sessionStorage: ${storedRefreshToken ? "Present" : "Not present"}`)
 
         if (userStr) {
           const currentUser = JSON.parse(userStr)
+          console.log("User data:", currentUser)
+
+          // تأكد من أن معرف القسم متاح للمستخدمين من نوع Admin
+          if (currentUser.role === "Admin") {
+            // استخراج معرف القسم من أي مكان متاح
+            const departmentId =
+              currentUser.department ||
+              currentUser.departmentId ||
+              (currentUser.user && currentUser.user.department) ||
+              (currentUser.user && currentUser.user.departmentId)
+
+            if (departmentId) {
+              currentUser.departmentId = departmentId
+              console.log(`Setting departmentId for Admin user: ${departmentId}`)
+              // تحديث sessionStorage بالقيمة الجديدة
+              sessionStorage.setItem("user", JSON.stringify(currentUser))
+            } else {
+              console.warn("Admin user without department ID!")
+            }
+          }
+
           setUser(currentUser)
         } else {
           setUser(null)
@@ -45,6 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (storedAccessToken) {
           setAccessToken(storedAccessToken)
+          // تأكد من تخزين التوكن في كلا المكانين للتوافق
+          sessionStorage.setItem("accessToken", storedAccessToken)
+          sessionStorage.setItem("token", storedAccessToken)
         } else {
           setAccessToken(null)
         }
@@ -88,12 +117,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json()
 
       if (data.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken)
+        sessionStorage.setItem("accessToken", data.accessToken)
+        sessionStorage.setItem("token", data.accessToken) // تخزين التوكن في كلا المكانين للتوافق
         setAccessToken(data.accessToken)
 
         // Update refresh token if a new one is provided
         if (data.refreshToken) {
-          localStorage.setItem("refreshToken", data.refreshToken)
+          sessionStorage.setItem("refreshToken", data.refreshToken)
           setRefreshToken(data.refreshToken)
         }
 
@@ -129,28 +159,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // If user is not logged in and trying to access a protected page
     if (!user && currentPath.startsWith("/dashboard")) {
-      // Store requested path in localStorage to return after login
-      localStorage.setItem("authRedirectPath", currentPath)
+      // Store requested path in sessionStorage to return after login
+      sessionStorage.setItem("authRedirectPath", currentPath)
       router.push("/login")
       return
     }
 
     // If user is logged in and trying to access login or register page
     if (user && (currentPath === "/login" || currentPath === "/register" || currentPath.startsWith("/register/"))) {
-      // For employees, redirect directly to tasks
+      // للموظفين، إعادة التوجيه مباشرة إلى المهام
       if (user.role === "Employee") {
         router.push("/dashboard/tasks/my-tasks")
         return
       }
 
-      // For other roles, check for a saved path to return to
-      const redirectPath = localStorage.getItem("authRedirectPath") || "/dashboard"
-      localStorage.removeItem("authRedirectPath") // Clear saved path after using it
+      // للأدوار الأخرى (المالك والمسؤول)، التحقق من وجود مسار محفوظ للعودة إليه
+      const redirectPath = sessionStorage.getItem("authRedirectPath") || "/dashboard"
+      sessionStorage.removeItem("authRedirectPath") // مسح المسار المحفوظ بعد استخدامه
       router.push(redirectPath)
       return
     }
 
-    // Redirect employees from dashboard root to tasks
+    // إعادة توجيه الموظفين من جذر لوحة التحكم إلى المهام
     if (user && user.role === "Employee" && currentPath === "/dashboard") {
       router.push("/dashboard/tasks/my-tasks")
       return
@@ -159,7 +189,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Helper function to get auth header
   const getAuthHeader = () => {
-    return accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+    const token = accessToken || sessionStorage.getItem("accessToken") || sessionStorage.getItem("token")
+    console.log(`getAuthHeader called, token: ${token ? "Present" : "Not present"}`)
+    return token ? { Authorization: `Bearer ${token}` } : {}
   }
 
   // Update the login function to work with token-based authentication
@@ -206,31 +238,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Store user info in localStorage
-      localStorage.setItem("user", JSON.stringify(data.user))
+      console.log("Login response:", data)
+
+      // تأكد من أن معرف القسم موجود في كائن المستخدم
+      // إذا كان المستخدم من نوع Admin، تأكد من حفظ معرف القسم
+      if (data.user.role === "Admin") {
+        // استخراج معرف القسم من أي مكان متاح
+        const departmentId =
+          data.user.department ||
+          data.user.departmentId ||
+          (data.user.user && data.user.user.department) ||
+          (data.user.user && data.user.user.departmentId)
+
+        if (departmentId) {
+          data.user.departmentId = departmentId
+          console.log("Admin user with department ID:", departmentId)
+        } else {
+          console.warn("Admin user without department ID in login response!")
+        }
+      }
+
+      // Store user info in sessionStorage
+      sessionStorage.setItem("user", JSON.stringify(data.user))
 
       // Store tokens if available
       if (data.accessToken) {
-        localStorage.setItem("accessToken", data.accessToken)
+        sessionStorage.setItem("accessToken", data.accessToken)
+        sessionStorage.setItem("token", data.accessToken) // تخزين التوكن في كلا المكانين للتوافق
         setAccessToken(data.accessToken)
+        console.log("Stored access token:", data.accessToken)
       }
 
       if (data.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken)
+        sessionStorage.setItem("refreshToken", data.refreshToken)
         setRefreshToken(data.refreshToken)
+        console.log("Stored refresh token:", data.refreshToken)
       }
 
       setUser(data.user)
 
-      // For employees, redirect directly to tasks
+      // تعديل الجزء الخاص بإعادة التوجيه بعد تسجيل الدخول
       if (data.user.role === "Employee") {
         router.push("/dashboard/tasks/my-tasks")
+        return { success: true, user: data.user }
+      } else if (data.user.role === "Admin" || data.user.role === "Owner") {
+        // توجيه المالك والمسؤول إلى لوحة التحكم الرئيسية
+        const redirectPath = sessionStorage.getItem("authRedirectPath") || "/dashboard"
+        sessionStorage.removeItem("authRedirectPath") // مسح المسار المحفوظ بعد استخدامه
+        router.push(redirectPath)
         return { success: true, user: data.user }
       }
 
       // For other roles, check for a saved redirect path
-      const redirectPath = localStorage.getItem("authRedirectPath") || "/dashboard"
-      localStorage.removeItem("authRedirectPath") // Clear the saved path after using it
+      const redirectPath = sessionStorage.getItem("authRedirectPath") || "/dashboard"
+      sessionStorage.removeItem("authRedirectPath") // Clear the saved path after using it
 
       router.push(redirectPath)
       return { success: true, user: data.user }
@@ -258,12 +319,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       })
 
-      // Even if the API call fails, we should still clear local storage and redirect
+      // Even if the API call fails, we should still clear sessionStorage and redirect
 
-      // Remove user data and tokens from localStorage
-      localStorage.removeItem("user")
-      localStorage.removeItem("accessToken")
-      localStorage.removeItem("refreshToken")
+      // Remove user data and tokens from sessionStorage
+      sessionStorage.removeItem("user")
+      sessionStorage.removeItem("accessToken")
+      sessionStorage.removeItem("token") // إزالة التوكن من كلا المكانين
+      sessionStorage.removeItem("refreshToken")
 
       // Update state to null
       setUser(null)
@@ -276,9 +338,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Logout error:", error)
 
       // Even in case of error, remove user data and redirect
-      localStorage.removeItem("user")
-      localStorage.removeItem("accessToken")
-      localStorage.removeItem("refreshToken")
+      sessionStorage.removeItem("user")
+      sessionStorage.removeItem("accessToken")
+      sessionStorage.removeItem("token") // إزالة التوكن من كلا المكانين
+      sessionStorage.removeItem("refreshToken")
       setUser(null)
       setAccessToken(null)
       setRefreshToken(null)

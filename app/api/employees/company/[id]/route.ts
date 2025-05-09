@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const companyId = params.id
+    // Ensure params is properly awaited
+    const { id } = params
+    const companyId = id
     const cookieHeader = request.headers.get("cookie")
     const authHeader = request.headers.get("Authorization")
 

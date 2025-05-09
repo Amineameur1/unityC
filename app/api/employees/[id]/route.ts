@@ -98,12 +98,28 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     // Get all cookies from the request
     const cookieHeader = request.headers.get("cookie")
 
+    // Get the user role and department from the request headers
+    const userRole = request.headers.get("X-User-Role") || "Employee"
+    const userDepartmentId = request.headers.get("X-User-Department") || null
+
+    // Extract the departmentId from the URL query parameters
+    const url = new URL(request.url)
+    const departmentIdParam = url.searchParams.get("departmentId")
+
     // Try to forward the request to the local server
     try {
-      console.log(`Forwarding update request to http://localhost:5001/api/v1/employee/${employeeId}`)
+      // For Admin users, we need to include the departmentId in the URL
+      let apiUrl = `http://localhost:5001/api/v1/employee/${employeeId}`
+
+      // If the user is an Admin and we have a departmentId, append it to the URL
+      if (userRole === "Admin" && departmentIdParam) {
+        apiUrl += `?departmentId=${departmentIdParam}`
+      }
+
+      console.log(`Forwarding update request to ${apiUrl}`)
       console.log("Update request body:", body)
 
-      const response = await fetch(`http://localhost:5001/api/v1/employee/${employeeId}`, {
+      const response = await fetch(apiUrl, {
         method: "PUT",
         credentials: "include", // Include cookies
         headers: {
@@ -149,6 +165,14 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     // Get all cookies from the request
     const cookieHeader = request.headers.get("cookie")
+
+    // Get the user role from the request headers
+    const userRole = request.headers.get("X-User-Role") || "Employee"
+
+    // If the user is an Admin, they should not be able to delete employees
+    if (userRole === "Admin") {
+      return NextResponse.json({ error: "Admins are not authorized to delete employees" }, { status: 403 })
+    }
 
     // Try to forward the request to the local server
     try {

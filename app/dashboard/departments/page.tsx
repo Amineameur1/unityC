@@ -18,7 +18,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -134,17 +133,13 @@ export default function DepartmentsPage() {
       setEmployees(formattedEmployees)
     } catch (error) {
       console.error("Error fetching active employees:", error)
-      // Use sample data if API fails
-      setEmployees([
-        { id: 1, name: "David Wilson", position: "Lead Developer", department: "Engineering" },
-        { id: 2, name: "Sarah Johnson", position: "Marketing Manager", department: "Marketing" },
-        { id: 3, name: "Michael Brown", position: "Financial Analyst", department: "Finance" },
-        { id: 4, name: "Emily Davis", position: "HR Specialist", department: "Human Resources" },
-        { id: 5, name: "Jessica Martinez", position: "Sales Representative", department: "Sales" },
-        { id: 6, name: "Robert Taylor", position: "Product Manager", department: "Product" },
-        { id: 7, name: "Jennifer Anderson", position: "Support Specialist", department: "Customer Support" },
-        { id: 8, name: "Mohammed Abdullah", position: "IT Manager", department: "IT" },
-      ])
+      // Don't use sample data if API fails, just set empty array
+      setEmployees([])
+      toast({
+        title: "Error fetching employees",
+        description: "Could not fetch employees data. Please try again later.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -225,6 +220,7 @@ export default function DepartmentsPage() {
       } else {
         console.log("No departments found in the response")
         setApiError("No departments found in the response")
+        setDepartments([]) // Set empty array instead of mock data
       }
     } catch (error) {
       console.error("Error fetching departments:", error)
@@ -236,10 +232,13 @@ export default function DepartmentsPage() {
         setApiError("Unknown error occurred while connecting to server")
       }
 
+      // Set departments to empty array instead of using mock data
+      setDepartments([])
+
       // Show warning message
       toast({
         title: "Failed to connect to server",
-        description: "Could not fetch departments from API. Using sample data instead.",
+        description: "Could not fetch departments from API. Please try again later.",
         variant: "destructive",
       })
     }
@@ -452,14 +451,26 @@ export default function DepartmentsPage() {
     }
 
     try {
-      const updatedDepartment = await departmentService.updateDepartment(currentDepartment.id, {
-        name: newDepartment.name,
-        budget: newDepartment.budget,
-        parentDepartmentId: newDepartment.parentDepartmentId ? Number.parseInt(newDepartment.parentDepartmentId) : null,
-        companyId: userCompanyId,
-      })
-
-      console.log("Department updated:", updatedDepartment)
+      // Check if it's a subdepartment or main department
+      if (currentDepartment.parentDepartmentId !== null) {
+        // It's a subdepartment
+        const updatedSubDepartment = await departmentService.updateSubDepartment(currentDepartment.id, {
+          name: newDepartment.name,
+          budget: newDepartment.budget,
+        })
+        console.log("Sub-department updated:", updatedSubDepartment)
+      } else {
+        // It's a main department
+        const updatedDepartment = await departmentService.updateDepartment(currentDepartment.id, {
+          name: newDepartment.name,
+          budget: newDepartment.budget,
+          parentDepartmentId: newDepartment.parentDepartmentId
+            ? Number.parseInt(newDepartment.parentDepartmentId)
+            : null,
+          companyId: userCompanyId,
+        })
+        console.log("Department updated:", updatedDepartment)
+      }
 
       // Refresh the departments list
       await fetchDepartments()
@@ -567,8 +578,18 @@ export default function DepartmentsPage() {
   // Handle delete department
   const handleDeleteDepartment = async (id: number) => {
     try {
-      // Call the API to delete the department
-      await departmentService.deleteDepartment(id)
+      // Check if it's a subdepartment or main department
+      const departmentToDelete =
+        departments.find((dept) => dept.id === id) ||
+        departments.flatMap((dept) => dept.subDepartments || []).find((subDept) => subDept.id === id)
+
+      if (departmentToDelete?.parentDepartmentId !== null) {
+        // It's a subdepartment
+        await departmentService.deleteSubDepartment(id)
+      } else {
+        // It's a main department
+        await departmentService.deleteDepartment(id)
+      }
 
       // Refresh the departments list
       await fetchDepartments()
@@ -656,17 +677,6 @@ export default function DepartmentsPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="sub-description">Sub-Department Description</Label>
-                    <Textarea
-                      id="sub-description"
-                      name="description"
-                      value={newDepartment.description}
-                      onChange={handleInputChange}
-                      placeholder="Enter sub-department description"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid gap-2">
                     <Label htmlFor="sub-budget">Budget</Label>
                     <Input
                       id="sub-budget"
@@ -677,24 +687,6 @@ export default function DepartmentsPage() {
                       placeholder="Enter sub-department budget"
                       required
                     />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="sub-manager">Department Manager</Label>
-                    <Select
-                      value={newDepartment.manager}
-                      onValueChange={(value) => handleSelectChange("manager", value)}
-                    >
-                      <SelectTrigger id="sub-manager">
-                        <SelectValue placeholder="Select department manager" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.name}>
-                            {employee.name} - {employee.position}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
                 <DialogFooter>
@@ -733,17 +725,6 @@ export default function DepartmentsPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="description">Department Description</Label>
-                    <Textarea
-                      id="description"
-                      name="description"
-                      value={newDepartment.description}
-                      onChange={handleInputChange}
-                      placeholder="Enter department description"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid gap-2">
                     <Label htmlFor="budget">Budget</Label>
                     <Input
                       id="budget"
@@ -754,24 +735,6 @@ export default function DepartmentsPage() {
                       placeholder="Enter department budget"
                       required
                     />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="manager">Department Manager</Label>
-                    <Select
-                      value={newDepartment.manager}
-                      onValueChange={(value) => handleSelectChange("manager", value)}
-                    >
-                      <SelectTrigger id="manager">
-                        <SelectValue placeholder="Select department manager" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.name}>
-                            {employee.name} - {employee.position}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
                 <DialogFooter>
@@ -795,9 +758,6 @@ export default function DepartmentsPage() {
               <div>
                 <h3 className="font-medium text-red-800">API Connection Error</h3>
                 <p className="text-sm text-red-600">{apiError}</p>
-                <p className="text-sm text-red-600 mt-1">
-                  Using mock data instead. The system will automatically connect to the API when available.
-                </p>
               </div>
             </div>
           </CardContent>
@@ -1014,17 +974,6 @@ export default function DepartmentsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-description">Department Description</Label>
-              <Textarea
-                id="edit-description"
-                name="description"
-                value={newDepartment.description}
-                onChange={handleInputChange}
-                placeholder="Enter department description"
-                rows={3}
-              />
-            </div>
-            <div className="grid gap-2">
               <Label htmlFor="edit-budget">Budget</Label>
               <Input
                 id="edit-budget"
@@ -1035,21 +984,6 @@ export default function DepartmentsPage() {
                 placeholder="Enter department budget"
                 required
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-manager">Department Manager</Label>
-              <Select value={newDepartment.manager} onValueChange={(value) => handleSelectChange("manager", value)}>
-                <SelectTrigger id="edit-manager">
-                  <SelectValue placeholder="Select department manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.name}>
-                      {employee.name} - {employee.position}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>

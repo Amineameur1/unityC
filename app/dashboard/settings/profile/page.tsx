@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,93 +11,83 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { apiClient } from "@/services/api-client"
 
 export default function ProfileSettingsPage() {
   const { toast } = useToast()
+
   const [profileData, setProfileData] = useState({
-    username: "mohammed_a",
-    firstName: "Mohammed",
-    lastName: "Abdullah",
-    email: "mohammed@example.com",
-    phone: "+966 50 123 4567",
-    bio: "Software developer with experience in web and mobile application development.",
+    username: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    bio: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   })
 
   const [companyData, setCompanyData] = useState({
-    name: "Tech Solutions Ltd",
-    industry: "Information Technology",
-    size: "50-100",
-    registrationNumber: "REG123456789",
-    taxId: "TAX987654321",
-    foundedYear: "2015",
-    website: "https://techsolutions.example.com",
-    address: "123 Business Park, Riyadh, Saudi Arabia",
-    phone: "+966 11 234 5678",
-    email: "info@techsolutions.example.com",
-    description:
-      "A leading technology solutions provider specializing in enterprise software development and IT consulting services.",
-  })
-
-  const [departments, setDepartments] = useState([
-    { id: 1, name: "Engineering", description: "Software development and engineering", employeeCount: 25 },
-    { id: 2, name: "Marketing", description: "Marketing and sales", employeeCount: 15 },
-    { id: 3, name: "Human Resources", description: "Employee management and recruitment", employeeCount: 8 },
-    { id: 4, name: "Finance", description: "Financial operations and accounting", employeeCount: 10 },
-  ])
-
-  const [newDepartment, setNewDepartment] = useState({
     name: "",
+    industry: "",
+    size: "",
+    registrationNumber: "",
+    taxId: "",
+    foundedYear: "",
+    website: "",
+    address: "",
+    phone: "",
+    email: "",
     description: "",
-    employeeCount: 0,
   })
 
-  const [editingDepartment, setEditingDepartment] = useState<null | {
-    id: number
-    name: string
-    description: string
-    employeeCount: number
-  }>(null)
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await apiClient.get("/api/auth/me")
+        const userData = response.data
 
-  const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false)
-  const [isEditDepartmentOpen, setIsEditDepartmentOpen] = useState(false)
+        setProfileData({
+          username: userData.username || "",
+          firstName: userData.firstName || "",
+          lastName: userData.lastName || "",
+          email: userData.email || "",
+          phone: userData.phone || "",
+          bio: userData.bio || "",
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        })
 
-  const [portfolioItems, setPortfolioItems] = useState([
-    {
-      id: 1,
-      type: "project",
-      title: "E-commerce Website",
-      description: "Developed a full-stack e-commerce platform with React and Node.js",
-      link: "https://example.com/project1",
-      year: "2023",
-    },
-    {
-      id: 2,
-      type: "education",
-      title: "Computer Science Degree",
-      description: "Bachelor's degree in Computer Science",
-      link: "",
-      year: "2020",
-    },
-    {
-      id: 3,
-      type: "skill",
-      title: "React.js",
-      description: "Advanced proficiency in React.js and related libraries",
-      link: "",
-      year: "",
-    },
-  ])
+        // If user has company data
+        if (userData.company) {
+          setCompanyData({
+            name: userData.company.name || "",
+            industry: userData.company.industry || "",
+            size: userData.company.size || "",
+            registrationNumber: userData.company.registrationNumber || "",
+            taxId: userData.company.taxId || "",
+            foundedYear: userData.company.foundedYear || "",
+            website: userData.company.website || "",
+            address: userData.company.address || "",
+            phone: userData.company.phone || "",
+            email: userData.company.email || "",
+            description: userData.company.description || "",
+          })
+        }
+      } catch (error) {
+        console.error("Failed to fetch user data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load user data. Please try again.",
+          variant: "destructive",
+        })
+      }
+    }
 
-  const [newPortfolioItem, setNewPortfolioItem] = useState({
-    type: "project",
-    title: "",
-    description: "",
-    link: "",
-    year: "",
-  })
+    fetchUserData()
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -117,171 +107,85 @@ export default function ProfileSettingsPage() {
     setCompanyData((prev) => ({ ...prev, size: value }))
   }
 
-  const handleNewDepartmentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setNewDepartment((prev) => ({
-      ...prev,
-      [name]: name === "employeeCount" ? Number.parseInt(value) || 0 : value,
-    }))
-  }
-
-  const handleEditingDepartmentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (!editingDepartment) return
-
-    const { name, value } = e.target
-    setEditingDepartment({
-      ...editingDepartment,
-      [name]: name === "employeeCount" ? Number.parseInt(value) || 0 : value,
-    })
-  }
-
-  const handleAddDepartment = () => {
-    if (!newDepartment.name) {
-      toast({
-        title: "Error",
-        description: "Department name is required",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const newItem = {
-      id: Date.now(),
-      ...newDepartment,
-    }
-
-    setDepartments([...departments, newItem])
-    setNewDepartment({
-      name: "",
-      description: "",
-      employeeCount: 0,
-    })
-    setIsAddDepartmentOpen(false)
-
-    toast({
-      title: "Department Added",
-      description: "The department has been added successfully",
-    })
-  }
-
-  const handleEditDepartment = (department: (typeof departments)[0]) => {
-    setEditingDepartment(department)
-    setIsEditDepartmentOpen(true)
-  }
-
-  const handleUpdateDepartment = () => {
-    if (!editingDepartment) return
-
-    if (!editingDepartment.name) {
-      toast({
-        title: "Error",
-        description: "Department name is required",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setDepartments(departments.map((dept) => (dept.id === editingDepartment.id ? editingDepartment : dept)))
-    setIsEditDepartmentOpen(false)
-    setEditingDepartment(null)
-
-    toast({
-      title: "Department Updated",
-      description: "The department has been updated successfully",
-    })
-  }
-
-  const handleDeleteDepartment = (id: number) => {
-    setDepartments(departments.filter((dept) => dept.id !== id))
-    toast({
-      title: "Department Deleted",
-      description: "The department has been deleted successfully",
-    })
-  }
-
-  const handlePortfolioItemChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setNewPortfolioItem((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handlePortfolioTypeChange = (value: string) => {
-    setNewPortfolioItem((prev) => ({ ...prev, type: value }))
-  }
-
-  const handleAddPortfolioItem = () => {
-    if (!newPortfolioItem.title || !newPortfolioItem.type) {
-      toast({
-        title: "Error",
-        description: "Title and type are required",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const newItem = {
-      id: Date.now(),
-      ...newPortfolioItem,
-    }
-
-    setPortfolioItems([...portfolioItems, newItem])
-    setNewPortfolioItem({
-      type: "project",
-      title: "",
-      description: "",
-      link: "",
-      year: "",
-    })
-
-    toast({
-      title: "Portfolio Item Added",
-      description: "Your portfolio item has been added successfully",
-    })
-  }
-
-  const handleDeletePortfolioItem = (id: number) => {
-    setPortfolioItems(portfolioItems.filter((item) => item.id !== id))
-    toast({
-      title: "Portfolio Item Deleted",
-      description: "Your portfolio item has been deleted successfully",
-    })
-  }
-
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    toast({
-      title: "Profile Updated",
-      description: "Your profile information has been updated successfully",
-    })
+    try {
+      await apiClient.put("/api/auth/profile", {
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        email: profileData.email,
+        phone: profileData.phone,
+        bio: profileData.bio,
+      })
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile information has been updated successfully",
+      })
+    } catch (error) {
+      console.error("Failed to update profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleCompanyUpdate = (e: React.FormEvent) => {
+  const handleCompanyUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    toast({
-      title: "Company Information Updated",
-      description: "Your company information has been updated successfully",
-    })
+    try {
+      await apiClient.put("/api/company", companyData)
+
+      toast({
+        title: "Company Information Updated",
+        description: "Your company information has been updated successfully",
+      })
+    } catch (error) {
+      console.error("Failed to update company information:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update company information. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handlePasswordUpdate = (e: React.FormEvent) => {
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (profileData.newPassword !== profileData.confirmPassword) {
       toast({
         title: "Error",
         description: "New password and confirmation do not match",
-        variant: "destructive",
       })
       return
     }
-    toast({
-      title: "Password Updated",
-      description: "Your password has been updated successfully",
-    })
-    setProfileData((prev) => ({
-      ...prev,
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    }))
+
+    try {
+      await apiClient.put("/api/auth/password", {
+        currentPassword: profileData.currentPassword,
+        newPassword: profileData.newPassword,
+      })
+
+      toast({
+        title: "Password Updated",
+        description: "Your password has been updated successfully",
+      })
+
+      setProfileData((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }))
+    } catch (error) {
+      console.error("Failed to update password:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update password. Please check your current password and try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (

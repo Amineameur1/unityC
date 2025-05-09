@@ -1,111 +1,94 @@
-export async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  try {
-    // Get access token from localStorage
-    const accessToken = localStorage.getItem("accessToken")
+import axios from "axios"
 
-    // Set up headers
-    const headers = {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...options.headers,
+// Determine if we're running in development or production
+const isDevelopment =
+  process.env.NODE_ENV === "development" || (typeof window !== "undefined" && window.location.hostname === "localhost")
+
+// Create an axios instance with default config
+export const apiClient = axios.create({
+  baseURL: process.env.NODE_ENV === "development" ? "http://localhost:5001/api/v1" : "/api/v1", // تحديث الرابط الأساسي
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true, // Important: This allows cookies to be sent with requests
+})
+
+// Add a request interceptor to include the auth token in requests
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = sessionStorage.getItem("token") || sessionStorage.getItem("accessToken")
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
     }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  },
+)
 
-    // Make the request with credentials to include cookies
-    let response = await fetch(url, {
-      ...options,
-      credentials: "include", // This is still important for cookies
-      headers,
-    })
+// Add a response interceptor to handle token refresh
+apiClient.interceptors.response.use(
+  (response) => {
+    return response
+  },
+  async (error) => {
+    const originalRequest = error.config
 
-    // Log the response status for debugging
-    console.log(`fetchWithAuth response status for ${url}: ${response.status}`)
+    // If the error is 401 and we haven't already tried to refresh the token
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
 
-    // If we get a 401 Unauthorized, try to refresh the token
-    if (response.status === 401) {
-      console.log("Access token expired, attempting to refresh...")
+      try {
+        // Try to refresh the token
+        const refreshToken = sessionStorage.getItem("refreshToken")
+        const refreshResponse = await axios.post(
+          `${isDevelopment ? "http://localhost:5001/api/v1" : "/api/v1"}/auth/refresh`,
+          { refreshToken },
+          { withCredentials: true },
+        )
 
-      // Try to refresh the token
-      const refreshed = await refreshAccessToken()
-
-      if (refreshed) {
-        // Get the new access token
-        const newAccessToken = localStorage.getItem("accessToken")
-
-        // Update the Authorization header with the new token
-        const newHeaders = {
-          "Content-Type": "application/json",
-          ...(newAccessToken ? { Authorization: `Bearer ${newAccessToken}` } : {}),
-          ...options.headers,
+        if (refreshResponse.status === 200) {
+          const newAccessToken = refreshResponse.data.accessToken
+          sessionStorage.setItem("accessToken", newAccessToken)
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+          return apiClient(originalRequest)
+        } else {
+          // If refresh fails, redirect to login
+          if (typeof window !== "undefined") {
+            window.location.href = "/login"
+          }
+          return Promise.reject(error)
         }
-
-        // Retry the request with the new token
-        response = await fetch(url, {
-          ...options,
-          credentials: "include",
-          headers: newHeaders,
-        })
-
-        console.log(`Retry response status for ${url}: ${response.status}`)
-
-        // If still unauthorized after refresh, redirect to login
-        if (response.status === 401) {
-          console.error("Authentication failed even after token refresh. Redirecting to login...")
+      } catch (refreshError) {
+        // If refresh fails, redirect to login
+        if (typeof window !== "undefined") {
           window.location.href = "/login"
         }
-      } else {
-        // If refresh failed, redirect to login
-        console.error("Token refresh failed. Redirecting to login...")
-        window.location.href = "/login"
+        return Promise.reject(refreshError)
       }
     }
 
-    return response
-  } catch (error) {
-    console.error(`fetchWithAuth error for ${url}:`, error)
-    throw error
+    return Promise.reject(error)
+  },
+)
+
+// Helper function to fetch data with authentication
+export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  const token = sessionStorage.getItem("token") || sessionStorage.getItem("accessToken")
+
+  // دمج الرؤوس المخصصة مع رؤوس التوثيق
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
   }
-}
 
-/**
- * Refreshes the access token using the refresh token
- * @returns Promise<boolean> True if refresh was successful
- */
-async function refreshAccessToken(): Promise<boolean> {
-  try {
-    const refreshToken = localStorage.getItem("refreshToken")
-
-    if (!refreshToken) {
-      return false
-    }
-
-    const response = await fetch("/api/auth/refresh", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ refreshToken }),
-    })
-
-    if (!response.ok) {
-      throw new Error("Failed to refresh token")
-    }
-
-    const data = await response.json()
-
-    if (data.accessToken) {
-      localStorage.setItem("accessToken", data.accessToken)
-
-      // Update refresh token if a new one is provided
-      if (data.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken)
-      }
-
-      return true
-    }
-
-    return false
-  } catch (error) {
-    console.error("Error refreshing token:", error)
-    return false
+  // إنشاء خيارات الطلب النهائية
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers,
   }
+
+  return fetch(url, fetchOptions)
 }

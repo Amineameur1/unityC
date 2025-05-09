@@ -34,104 +34,12 @@ import { format } from "date-fns"
 // إضافة استخدام مكون المصادقة
 import { useAuth } from "@/components/auth-provider"
 
-// Sample resource data
-const initialResources = [
-  {
-    id: 1,
-    name: "Dell XPS 15 Laptop",
-    type: "Hardware",
-    category: "Laptop",
-    status: "Allocated",
-    assignedTo: "John Smith",
-    department: "Engineering",
-    purchaseDate: new Date(2022, 5, 15),
-    value: 1899.99,
-  },
-  {
-    id: 2,
-    name: "Adobe Creative Cloud",
-    type: "Software",
-    category: "Design Software",
-    status: "Available",
-    assignedTo: "Sarah Johnson",
-    department: "Marketing",
-    purchaseDate: new Date(2022, 3, 10),
-    value: 599.99,
-  },
-  {
-    id: 3,
-    name: "iPhone 13 Pro",
-    type: "Hardware",
-    category: "Mobile Device",
-    status: "Allocated",
-    assignedTo: "David Wilson",
-    department: "Sales",
-    purchaseDate: new Date(2022, 7, 22),
-    value: 999.99,
-  },
-  {
-    id: 4,
-    name: "Microsoft Office 365",
-    type: "Software",
-    category: "Productivity Software",
-    status: "Available",
-    assignedTo: null,
-    department: null,
-    purchaseDate: new Date(2022, 1, 5),
-    value: 99.99,
-  },
-  {
-    id: 5,
-    name: "Herman Miller Aeron Chair",
-    type: "Furniture",
-    category: "Office Chair",
-    status: "Allocated",
-    assignedTo: "Michael Brown",
-    department: "Finance",
-    purchaseDate: new Date(2021, 11, 3),
-    value: 1395.0,
-  },
-  {
-    id: 6,
-    name: "Conference Room A Equipment",
-    type: "Hardware",
-    category: "Meeting Room",
-    status: "Maintenance",
-    assignedTo: null,
-    department: "Facilities",
-    purchaseDate: new Date(2021, 6, 12),
-    value: 5000.0,
-  },
-  {
-    id: 7,
-    name: "Salesforce License",
-    type: "Software",
-    category: "CRM",
-    status: "Allocated",
-    assignedTo: "Jessica Martinez",
-    department: "Sales",
-    purchaseDate: new Date(2022, 2, 18),
-    value: 150.0,
-  },
-  {
-    id: 8,
-    name: "HP Color LaserJet Printer",
-    type: "Hardware",
-    category: "Printer",
-    status: "Available",
-    assignedTo: null,
-    department: "Office Management",
-    purchaseDate: new Date(2021, 9, 30),
-    value: 499.99,
-  },
-]
-
 export default function ResourcesPage() {
   // داخل المكون الرئيسي، أضف:
   const { user } = useAuth()
   const userRole = user?.role || "Employee" // افتراضي كموظف إذا لم يتم تحديد الدور
 
-  const [resources, setResources] = useState(initialResources)
+  const [resources, setResources] = useState<Array<any>>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [newResource, setNewResource] = useState({
     name: "",

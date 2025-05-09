@@ -147,7 +147,7 @@ const realAuth = {
 
       // Store user info in localStorage for easy access
       if (response.data.user) {
-        localStorage.setItem("user", JSON.stringify(response.data.user))
+        sessionStorage.setItem("user", JSON.stringify(response.data.user))
       }
 
       return response.data
@@ -164,7 +164,7 @@ const realAuth = {
 
       // Store user info in localStorage
       if (mockResponse.user) {
-        localStorage.setItem("user", JSON.stringify(mockResponse.user))
+        sessionStorage.setItem("user", JSON.stringify(mockResponse.user))
       }
 
       return mockResponse
@@ -181,7 +181,7 @@ const realAuth = {
 
       // Store user info in localStorage
       if (mockResponse.user) {
-        localStorage.setItem("user", JSON.stringify(mockResponse.user))
+        sessionStorage.setItem("user", JSON.stringify(mockResponse.user))
       }
 
       return mockResponse
@@ -195,26 +195,26 @@ const realAuth = {
       // Clear cookies by making a logout request
       // Note: You'll need to implement this endpoint on your backend
       // For now, we'll just clear localStorage
-      localStorage.removeItem("user")
+      sessionStorage.removeItem("user")
 
       return { message: "Logout successful" }
     } catch (error) {
       // Even if the request fails, clear local storage
-      localStorage.removeItem("user")
+      sessionStorage.removeItem("user")
       throw error
     }
   },
 
   isAuthenticated() {
     if (typeof window === "undefined") return false
-    return !!localStorage.getItem("user")
+    return !!sessionStorage.getItem("user")
   },
 
   getCurrentUser(): User | null {
     if (typeof window === "undefined") return null
 
     try {
-      const userStr = localStorage.getItem("user")
+      const userStr = sessionStorage.getItem("user")
       if (userStr) {
         return JSON.parse(userStr)
       }

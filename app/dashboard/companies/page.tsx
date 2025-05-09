@@ -31,84 +31,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/use-toast"
 
-// Sample company data
-const initialCompanies = [
-  {
-    id: 1,
-    name: "Acme Corporation",
-    industry: "Technology",
-    employees: 1200,
-    location: "New York, USA",
-    departments: 8,
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Globex Industries",
-    industry: "Manufacturing",
-    employees: 850,
-    location: "Chicago, USA",
-    departments: 6,
-    status: "Active",
-  },
-  {
-    id: 3,
-    name: "Initech Solutions",
-    industry: "Software",
-    employees: 450,
-    location: "San Francisco, USA",
-    departments: 5,
-    status: "Active",
-  },
-  {
-    id: 4,
-    name: "Umbrella Corporation",
-    industry: "Pharmaceuticals",
-    employees: 2000,
-    location: "Boston, USA",
-    departments: 12,
-    status: "Active",
-  },
-  {
-    id: 5,
-    name: "Stark Industries",
-    industry: "Technology",
-    employees: 1500,
-    location: "Los Angeles, USA",
-    departments: 10,
-    status: "Active",
-  },
-  {
-    id: 6,
-    name: "Wayne Enterprises",
-    industry: "Conglomerate",
-    employees: 3000,
-    location: "Gotham City, USA",
-    departments: 15,
-    status: "Active",
-  },
-  {
-    id: 7,
-    name: "Cyberdyne Systems",
-    industry: "Robotics",
-    employees: 750,
-    location: "Sunnyvale, USA",
-    departments: 7,
-    status: "Inactive",
-  },
-  {
-    id: 8,
-    name: "Massive Dynamic",
-    industry: "Research",
-    employees: 1200,
-    location: "New York, USA",
-    departments: 9,
-    status: "Active",
-  },
-]
-
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState(initialCompanies)
+  const [companies, setCompanies] = useState<Array<any>>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [newCompany, setNewCompany] = useState({
     name: "",

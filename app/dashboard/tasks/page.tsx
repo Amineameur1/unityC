@@ -123,6 +123,7 @@ export default function TasksPage() {
           description: "Failed to load tasks. Please try again later.",
           variant: "destructive",
         })
+        // Just set an empty array, don't use mock data
         setTasks([])
       } finally {
         setIsLoading(false)
@@ -339,121 +340,126 @@ export default function TasksPage() {
           <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
           <p className="text-muted-foreground">Manage and track tasks across your organization</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Task
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[525px]">
-            <DialogHeader>
-              <DialogTitle>Add New Task</DialogTitle>
-              <DialogDescription>Create a new task and assign it to an employee.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">Task Title</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={newTask.title}
-                  onChange={handleInputChange}
-                  placeholder="Enter task title"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={newTask.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter task description"
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="assignedTo">Assignee</Label>
-                  <Select value={newTask.assignedTo} onValueChange={(value) => handleSelectChange("assignedTo", value)}>
-                    <SelectTrigger id="assignedTo">
-                      <SelectValue placeholder="Select assignee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((employee) => (
-                        <SelectItem key={employee.id} value={employee.id.toString()}>
-                          {employee.firstName} {employee.lastName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="departmentId">Department</Label>
-                  <Select
-                    value={newTask.departmentId}
-                    onValueChange={(value) => handleSelectChange("departmentId", value)}
-                  >
-                    <SelectTrigger id="departmentId">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((department) => (
-                        <SelectItem key={department.id} value={department.id.toString()}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select value={newTask.priority} onValueChange={(value) => handleSelectChange("priority", value)}>
-                    <SelectTrigger id="priority">
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Low">Low</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="High">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="deadline">Due Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="uploadedFile">Attachment (Optional)</Label>
-                <Input id="uploadedFile" type="file" onChange={handleFileChange} className="cursor-pointer" />
-                <p className="text-xs text-muted-foreground">Upload any relevant files for this task.</p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
-                Cancel
+        {user?.role !== "Employee" && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-1">
+                <Plus className="h-4 w-4" />
+                Add Task
               </Button>
-              <Button onClick={handleAddTask} disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Task"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[525px]">
+              <DialogHeader>
+                <DialogTitle>Add New Task</DialogTitle>
+                <DialogDescription>Create a new task and assign it to an employee.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="title">Task Title</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    value={newTask.title}
+                    onChange={handleInputChange}
+                    placeholder="Enter task title"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={newTask.description}
+                    onChange={handleInputChange}
+                    placeholder="Enter task description"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="assignedTo">Assignee</Label>
+                    <Select
+                      value={newTask.assignedTo}
+                      onValueChange={(value) => handleSelectChange("assignedTo", value)}
+                    >
+                      <SelectTrigger id="assignedTo">
+                        <SelectValue placeholder="Select assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id.toString()}>
+                            {employee.firstName} {employee.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="departmentId">Department</Label>
+                    <Select
+                      value={newTask.departmentId}
+                      onValueChange={(value) => handleSelectChange("departmentId", value)}
+                    >
+                      <SelectTrigger id="departmentId">
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((department) => (
+                          <SelectItem key={department.id} value={department.id.toString()}>
+                            {department.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select value={newTask.priority} onValueChange={(value) => handleSelectChange("priority", value)}>
+                      <SelectTrigger id="priority">
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Low">Low</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="deadline">Due Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {date ? format(date, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar mode="single" selected={date} onSelect={handleDateChange} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="uploadedFile">Attachment (Optional)</Label>
+                  <Input id="uploadedFile" type="file" onChange={handleFileChange} className="cursor-pointer" />
+                  <p className="text-xs text-muted-foreground">Upload any relevant files for this task.</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddTask} disabled={isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Create Task"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
@@ -607,10 +613,18 @@ export default function TasksPage() {
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Edit Task</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => markTaskAsComplete(task.id)}>
-                            {task.status === "Completed" ? "Reopen Task" : "Mark as Completed"}
-                          </DropdownMenuItem>
+                          {user?.role !== "Employee" && <DropdownMenuItem>Edit Task</DropdownMenuItem>}
+                          {user?.role !== "Employee" ? (
+                            <DropdownMenuItem onClick={() => markTaskAsComplete(task.id)}>
+                              {task.status === "Completed" ? "Reopen Task" : "Mark as Completed"}
+                            </DropdownMenuItem>
+                          ) : (
+                            task.status !== "Completed" && (
+                              <DropdownMenuItem onClick={() => markTaskAsComplete(task.id)}>
+                                Mark as Completed
+                              </DropdownMenuItem>
+                            )
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

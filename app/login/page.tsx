@@ -28,7 +28,7 @@ export default function LoginPage() {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = () => {
-      const user = localStorage.getItem("user")
+      const user = sessionStorage.getItem("user")
       if (user) {
         // Use window.location.href instead of router.push to avoid routing issues
         window.location.href = callbackUrl
@@ -81,10 +81,10 @@ export default function LoginPage() {
         throw new Error("Invalid user data received")
       }
 
-      // Store user info in localStorage
-      localStorage.setItem("user", JSON.stringify(data.user))
+      // Store user info in sessionStorage
+      sessionStorage.setItem("user", JSON.stringify(data.user))
       if (data.token) {
-        localStorage.setItem("token", data.token)
+        sessionStorage.setItem("token", data.token)
       }
 
       toast({
@@ -92,19 +92,19 @@ export default function LoginPage() {
         description: "Welcome to the Enterprise Management System",
       })
 
-      // Redirect employees directly to tasks
+      // تعديل منطق إعادة التوجيه بعد تسجيل الدخول الناجح
       if (data.user.role === "Employee") {
         window.location.href = "/dashboard/tasks/my-tasks"
         return
-      }
+      } else if (data.user.role === "Owner" || data.user.role === "Admin") {
+        // حفظ مسار العودة إذا كان موجودًا
+        if (callbackUrl && callbackUrl !== "/dashboard") {
+          sessionStorage.setItem("authRedirectPath", callbackUrl)
+        }
 
-      // Save return path if it exists
-      if (callbackUrl && callbackUrl !== "/dashboard") {
-        localStorage.setItem("authRedirectPath", callbackUrl)
+        // إعادة التوجيه إلى لوحة التحكم
+        window.location.href = "/dashboard"
       }
-
-      // Redirect to dashboard
-      window.location.href = "/dashboard"
     } catch (error: any) {
       console.error("Login error:", error)
       setError(error.message || "An error occurred while trying to log in. Please try again.")

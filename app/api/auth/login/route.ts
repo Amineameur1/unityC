@@ -58,7 +58,11 @@ export async function POST(request: Request) {
 
       // Create a new response with user data and tokens
       const newResponse = NextResponse.json({
-        user: data.user || data.employee,
+        user: {
+          ...(data.user || data.employee),
+          // تأكد من أن معرف القسم موجود في كائن المستخدم
+          departmentId: data.user?.department || data.employee?.department || null,
+        },
         accessToken: accessToken,
         refreshToken: refreshToken,
         message: data.message || "Login successful",

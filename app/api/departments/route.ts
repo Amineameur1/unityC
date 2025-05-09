@@ -6,15 +6,30 @@ export async function GET(request: Request) {
     const url = new URL(request.url)
     const companyId = url.searchParams.get("companyId") || "12" // Default to 12 if not provided
 
+    // Get user role and department from headers or cookies
+    const userRole = request.headers.get("X-User-Role") || "Employee"
+    const userDepartmentId = request.headers.get("X-User-Department") || null
+
     // Get all cookies and auth header from the request
     const cookieHeader = request.headers.get("cookie")
     const authHeader = request.headers.get("Authorization")
 
     // Try to forward the request to the local server
     try {
-      console.log(`Forwarding request to http://localhost:5001/api/v1/department/company/${companyId}`)
+      // Determine the correct endpoint based on user role
+      let apiEndpoint = ""
 
-      const response = await fetch(`http://localhost:5001/api/v1/department/company/${companyId}`, {
+      if (userRole === "Admin" && userDepartmentId) {
+        // Admin users should only see their department
+        apiEndpoint = `http://localhost:5001/api/v1/department/${userDepartmentId}`
+        console.log(`Forwarding Admin department request to ${apiEndpoint}`)
+      } else {
+        // Owner and other roles can see all departments in the company
+        apiEndpoint = `http://localhost:5001/api/v1/department/company/${companyId}`
+        console.log(`Forwarding department request to ${apiEndpoint}`)
+      }
+
+      const response = await fetch(apiEndpoint, {
         method: "GET",
         credentials: "include", // Include cookies
         headers: {
@@ -25,6 +40,22 @@ export async function GET(request: Request) {
       })
 
       if (!response.ok) {
+        // If Admin tries to access all departments and gets 403, return only their department
+        if (userRole === "Admin" && response.status === 403) {
+          console.log("Admin access denied to all departments, returning only their department")
+          return NextResponse.json([
+            {
+              id: Number(userDepartmentId),
+              uuid: "admin-department-uuid",
+              name: "Your Department",
+              companyId: Number(companyId),
+              parentDepartmentId: null,
+              budget: "0",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          ])
+        }
         throw new Error(`API responded with status: ${response.status}`)
       }
 
@@ -34,6 +65,23 @@ export async function GET(request: Request) {
       console.error("Error forwarding to local API:", error)
 
       // Return mock data when the API is unavailable
+      // If Admin, return only their department
+      if (userRole === "Admin" && userDepartmentId) {
+        return NextResponse.json([
+          {
+            id: Number(userDepartmentId),
+            uuid: "admin-department-uuid",
+            name: "Your Department",
+            companyId: Number(companyId),
+            parentDepartmentId: null,
+            budget: "0",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ])
+      }
+
+      // Otherwise return mock departments
       return NextResponse.json([
         {
           id: 6,
@@ -69,9 +117,18 @@ export async function POST(request: Request) {
     const cookieHeader = request.headers.get("cookie")
     const authHeader = request.headers.get("Authorization")
 
+    // Get user role and department from headers
+    const userRole = request.headers.get("X-User-Role") || "Employee"
+    const userDepartmentId = request.headers.get("X-User-Department") || null
+
     // Try to forward the request to the local server
     try {
       console.log("Forwarding request to http://localhost:5001/api/v1/department")
+
+      // If Admin, ensure the department is created as a sub-department of their department
+      if (userRole === "Admin" && userDepartmentId) {
+        body.parentDepartmentId = Number(userDepartmentId)
+      }
 
       const response = await fetch("http://localhost:5001/api/v1/department", {
         method: "POST",
@@ -99,7 +156,7 @@ export async function POST(request: Request) {
         uuid: "mock-uuid-new-department",
         name: body.name,
         companyId: body.companyId,
-        parentDepartmentId: null,
+        parentDepartmentId: userRole === "Admin" ? Number(userDepartmentId) : null,
         budget: body.budget.toString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

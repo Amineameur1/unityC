@@ -12,13 +12,14 @@ const permissions = {
     company_settings: ["manage"],
   },
   Admin: {
+    // تحديث صلاحيات المسؤول وفقًا للمتطلبات الجديدة
     employees: ["read", "update"],
     departments: ["read", "update"],
     sub_departments: ["create", "read", "update", "delete"],
     resources: ["create", "read", "update"],
     tasks: ["create", "read", "update", "delete"],
     announcements: ["create", "read", "update", "delete"],
-    performance_metrics: ["create", "read", "update"],
+    performance_metrics: ["read"],
   },
   Employee: {
     employees: ["read"],
@@ -53,11 +54,11 @@ export function hasPermission(role: string, resource: string, action: string): b
 export function getScope(role: string): string {
   switch (role) {
     case "Owner":
-      return "global"
+      return "global" // المالك لديه وصول عالمي
     case "Admin":
-      return "department"
+      return "department" // المسؤول لديه وصول على مستوى القسم فقط
     case "Employee":
-      return "self && department"
+      return "self" // الموظف لديه وصول على مستوى نفسه فقط
     default:
       return "none"
   }

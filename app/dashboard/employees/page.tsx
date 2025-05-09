@@ -21,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Users, Loader2, AlertTriangle, Filter, Eye, Pencil, Trash, UserPlus } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { fetchWithAuth } from "@/services/api-client"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -130,6 +129,7 @@ export default function EmployeesPage() {
   const [sortField, setSortField] = useState<string>("firstName")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [showInactiveEmployees, setShowInactiveEmployees] = useState(false)
+  const [userDepartmentId, setUserDepartmentId] = useState<number | null>(null)
 
   const { toast } = useToast()
   const { user, getAuthHeader } = useAuth() // Get the authenticated user and auth header
@@ -146,21 +146,104 @@ export default function EmployeesPage() {
   const canUpdateEmployee = userRole === "Owner" || userRole === "Admin"
   const canDeleteEmployee = userRole === "Owner"
   const canCreateUserAccount = userRole === "Owner"
+  const canUpdateDepartment = userRole === "Owner" || userRole === "Admin"
+
+  // Fetch the user's department ID if they are an Admin
+  useEffect(() => {
+    const fetchUserDepartment = async () => {
+      if (userRole === "Admin" && user?.id) {
+        try {
+          // إذا كان معرف القسم موجود بالفعل في كائن المستخدم، استخدمه مباشرة
+          if (user.department || user.departmentId) {
+            const deptId = user.department || user.departmentId
+            console.log(`Admin user with department ID from user object: ${deptId}`)
+            setUserDepartmentId(Number(deptId))
+            setSelectedDepartment(String(deptId))
+            return
+          }
+
+          // إذا لم يكن موجودًا، قم بجلبه من API
+          console.log(`Fetching department ID for Admin user with ID: ${user.id}`)
+          const response = await fetchWithAuth(`/api/employees/${user.id}`)
+          if (response.ok) {
+            const userData = await response.json()
+            if (userData.departmentId) {
+              console.log(`Fetched department ID: ${userData.departmentId}`)
+              setUserDepartmentId(userData.departmentId)
+              // Automatically set the selected department for Admin users
+              setSelectedDepartment(userData.departmentId.toString())
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user department:", error)
+        }
+      }
+    }
+
+    fetchUserDepartment()
+  }, [user, userRole])
+
+  // Utility function to make authenticated API requests
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    try {
+      const authHeader = await getAuthHeader()
+      const token = sessionStorage.getItem("accessToken") || sessionStorage.getItem("token")
+
+      console.log(`Making authenticated request to ${url}`)
+      console.log(`Token from sessionStorage: ${token ? "Present" : "Not present"}`)
+      console.log(`Auth header from getAuthHeader: ${JSON.stringify(authHeader)}`)
+
+      // Always include the token in the Authorization header if available
+      const headers = {
+        ...options.headers,
+        ...authHeader,
+        "X-User-Role": userRole,
+        "X-User-Department": userDepartmentId?.toString() || "",
+      }
+
+      if (token && !headers.Authorization) {
+        headers.Authorization = `Bearer ${token}`
+      }
+
+      console.log(`Final headers: ${JSON.stringify(headers)}`)
+
+      return fetch(url, {
+        ...options,
+        headers,
+        credentials: "include", // Always include credentials
+      })
+    } catch (error) {
+      console.error("Error in fetchWithAuth:", error)
+      throw error
+    }
+  }
 
   // Fetch employees for the user's company using fetchWithAuth
   const fetchEmployees = async (departmentId?: string) => {
     setIsFetching(true)
     setApiError(null)
     try {
-      // Determine the API endpoint based on whether we're filtering by department
-      const endpoint =
-        departmentId && departmentId !== "all"
-          ? `/api/employees/department/${departmentId}?companyId=${userCompanyId}`
-          : `/api/employees?companyId=${userCompanyId}`
+      // Determine the API endpoint based on user role and department
+      let endpoint = ""
 
-      console.log(`Fetching employees from: ${endpoint}`)
+      if (userRole === "Admin" && userDepartmentId) {
+        // تصحيح: استخدام مسار القسم المحدد مباشرة للمستخدمين من نوع Admin
+        endpoint = `/api/employees/department/${userDepartmentId}?companyId=${userCompanyId}`
+        console.log(`Admin user: Using department endpoint ${endpoint}`)
+      } else if (userRole === "Owner") {
+        // Owner can see all employees or filter by department
+        endpoint =
+          departmentId && departmentId !== "all"
+            ? `/api/employees/department/${departmentId}?companyId=${userCompanyId}`
+            : `/api/employees?companyId=${userCompanyId}`
+        console.log(`Owner user: Using endpoint ${endpoint}`)
+      } else {
+        // Default case
+        endpoint = `/api/employees?companyId=${userCompanyId}`
+        console.log(`Default case: Using endpoint ${endpoint}`)
+      }
 
-      // Use our fetchWithAuth utility
+      // Use our fetchWithAuth utility with custom headers
       const response = await fetchWithAuth(endpoint)
 
       if (!response.ok) {
@@ -168,6 +251,11 @@ export default function EmployeesPage() {
       }
 
       const data: EmployeeResponse = await response.json()
+      console.log(`Received ${data.employees?.length || 0} employees from API`)
+
+      // إضافة سجل تصحيح لعرض البيانات المستلمة
+      console.log("Employees data received:", data.employees)
+
       setEmployees(data.employees || [])
 
       toast({
@@ -183,7 +271,7 @@ export default function EmployeesPage() {
         variant: "destructive",
       })
 
-      // Set empty array if fetch fails
+      // Remove any code that sets mock data and just set an empty array
       setEmployees([])
     } finally {
       setIsLoading(false)
@@ -193,14 +281,19 @@ export default function EmployeesPage() {
 
   // Effect to fetch employees when the component mounts or when the selected department changes
   useEffect(() => {
-    fetchEmployees(selectedDepartment)
-  }, [userCompanyId, selectedDepartment])
+    // For Admin users, we don't want to allow changing departments
+    if (userRole === "Admin" && userDepartmentId) {
+      fetchEmployees(userDepartmentId.toString())
+    } else {
+      fetchEmployees(selectedDepartment)
+    }
+  }, [userCompanyId, selectedDepartment, userRole, userDepartmentId])
 
   // Fetch departments directly from the API endpoint
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        // Use the direct API endpoint as specified
+        // Use the direct API endpoint as specified with custom headers
         const response = await fetchWithAuth(`/api/departments`)
 
         if (!response.ok) {
@@ -211,7 +304,14 @@ export default function EmployeesPage() {
 
         // Check if departments is an array or nested in a property
         const departmentsArray = Array.isArray(data) ? data : data.departments || []
-        setDepartments(departmentsArray)
+
+        // For Admin users, filter to only show their department
+        if (userRole === "Admin" && userDepartmentId) {
+          const filteredDepartments = departmentsArray.filter((dept) => dept.id === userDepartmentId)
+          setDepartments(filteredDepartments)
+        } else {
+          setDepartments(departmentsArray)
+        }
 
         console.log("Fetched departments:", departmentsArray)
       } catch (error) {
@@ -225,11 +325,16 @@ export default function EmployeesPage() {
     }
 
     fetchDepartments()
-  }, [userCompanyId, toast])
+  }, [userCompanyId, toast, userRole, userDepartmentId])
 
   // Apply filters and sorting to employees
   const filteredEmployees = employees
     .filter((employee) => {
+      // إضافة سجل تصحيح لكل موظف يتم تصفيته
+      console.log(
+        `Filtering employee: ${employee.firstName} ${employee.lastName}, departmentId: ${employee.departmentId}, userDepartmentId: ${userDepartmentId}`,
+      )
+
       // Text search filter
       const matchesSearch =
         employee.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -238,8 +343,11 @@ export default function EmployeesPage() {
         employee.jobTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee.department?.name?.toLowerCase().includes(searchQuery.toLowerCase())
 
-      // Department filter
-      const matchesDepartment = selectedDepartment === "all" || employee.departmentId?.toString() === selectedDepartment
+      // Department filter - for Admin users, this is always their department
+      const matchesDepartment =
+        userRole === "Admin"
+          ? employee.departmentId === userDepartmentId
+          : selectedDepartment === "all" || employee.departmentId?.toString() === selectedDepartment
 
       // Status filter
       const matchesStatus =
@@ -249,6 +357,11 @@ export default function EmployeesPage() {
 
       // Show/hide inactive employees
       const matchesActiveFilter = showInactiveEmployees ? true : employee.isActive
+
+      // إضافة سجل تصحيح لنتائج التصفية
+      console.log(
+        `Filter results for ${employee.firstName} ${employee.lastName}: search=${matchesSearch}, department=${matchesDepartment}, status=${matchesStatus}, active=${matchesActiveFilter}`,
+      )
 
       return matchesSearch && matchesDepartment && matchesStatus && matchesActiveFilter
     })
@@ -291,6 +404,12 @@ export default function EmployeesPage() {
       }
     })
 
+  // إضافة سجل تصحيح لعرض الموظفين بعد التصفية
+  useEffect(() => {
+    console.log(`Filtered employees count: ${filteredEmployees.length}`)
+    console.log("Filtered employees:", filteredEmployees)
+  }, [filteredEmployees])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setNewEmployee((prev) => ({ ...prev, [name]: value }))
@@ -307,7 +426,10 @@ export default function EmployeesPage() {
 
   // Handle department filter change
   const handleDepartmentFilterChange = (value: string) => {
-    setSelectedDepartment(value)
+    // Admin users should not be able to change department filter
+    if (userRole !== "Admin") {
+      setSelectedDepartment(value)
+    }
   }
 
   // Handle status filter change
@@ -342,13 +464,17 @@ export default function EmployeesPage() {
         return
       }
 
+      // For Admin users, force the department to be their own department
+      const departmentId =
+        userRole === "Admin" && userDepartmentId ? userDepartmentId.toString() : newEmployee.departmentId || "1"
+
       // Format the request body according to the API requirements
       const requestBody = {
         employee: {
           firstName: newEmployee.firstName,
           lastName: newEmployee.lastName,
           email: newEmployee.email,
-          departmentId: newEmployee.departmentId || "1", // Default to 1 if not selected
+          departmentId: departmentId,
           companyId: userCompanyId.toString(),
           jobTitle: newEmployee.jobTitle || "Employee",
           role: newEmployee.role,
@@ -375,14 +501,18 @@ export default function EmployeesPage() {
       console.log("Employee created successfully:", data)
 
       // Refresh the employee list
-      await fetchEmployees(selectedDepartment)
+      if (userRole === "Admin" && userDepartmentId) {
+        fetchEmployees(userDepartmentId.toString())
+      } else {
+        fetchEmployees(selectedDepartment)
+      }
 
       // Reset the form
       setNewEmployee({
         firstName: "",
         lastName: "",
         email: "",
-        departmentId: "",
+        departmentId: userRole === "Admin" && userDepartmentId ? userDepartmentId.toString() : "",
         companyId: userCompanyId.toString(),
         jobTitle: "",
         role: "Employee",
@@ -480,6 +610,11 @@ export default function EmployeesPage() {
 
     setIsDeleting(true)
     try {
+      // Admin users should not be able to delete employees
+      if (userRole === "Admin") {
+        throw new Error("Admins are not authorized to delete employees")
+      }
+
       const response = await fetchWithAuth(`/api/employees/${deleteEmployeeId}`, {
         method: "DELETE",
       })
@@ -490,7 +625,11 @@ export default function EmployeesPage() {
       }
 
       // Refresh the employee list
-      await fetchEmployees(selectedDepartment)
+      if (userRole === "Admin" && userDepartmentId) {
+        fetchEmployees(userDepartmentId.toString())
+      } else {
+        fetchEmployees(selectedDepartment)
+      }
 
       toast({
         title: "Success",
@@ -518,7 +657,12 @@ export default function EmployeesPage() {
 
   // Function to navigate to the edit employee page
   const navigateToEdit = (employeeId: number) => {
-    router.push(`/dashboard/employees/${employeeId}/edit`)
+    // For Admin users, include their department ID in the URL
+    if (userRole === "Admin" && userDepartmentId) {
+      router.push(`/dashboard/employees/${employeeId}/edit?departmentId=${userDepartmentId}`)
+    } else {
+      router.push(`/dashboard/employees/${employeeId}/edit`)
+    }
   }
 
   return (
@@ -526,7 +670,11 @@ export default function EmployeesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Employees</h1>
-          <p className="text-muted-foreground">Manage your organization's employees and their details</p>
+          <p className="text-muted-foreground">
+            {userRole === "Admin"
+              ? "Manage employees in your department"
+              : "Manage your organization's employees and their details"}
+          </p>
         </div>
         <div className="flex gap-2">
           {canCreateUserAccount && (
@@ -606,7 +754,8 @@ export default function EmployeesPage() {
             </Dialog>
           )}
 
-          {canCreateEmployee && (
+          {/* Admin users can add employees to their department */}
+          {(canCreateEmployee || userRole === "Admin") && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-1">
@@ -618,7 +767,9 @@ export default function EmployeesPage() {
                 <DialogHeader>
                   <DialogTitle>Add New Employee</DialogTitle>
                   <DialogDescription>
-                    Enter the details of the new employee to add to your organization.
+                    {userRole === "Admin"
+                      ? "Enter the details of the new employee to add to your department."
+                      : "Enter the details of the new employee to add to your organization."}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -663,9 +814,10 @@ export default function EmployeesPage() {
                     <Select
                       value={newEmployee.departmentId}
                       onValueChange={(value) => handleSelectChange("departmentId", value)}
+                      disabled={userRole === "Admin"} // Disable for Admin users
                     >
                       <SelectTrigger id="departmentId">
-                        <SelectValue placeholder="Select department" />
+                        <SelectValue placeholder={userRole === "Admin" ? "Your Department" : "Select department"} />
                       </SelectTrigger>
                       <SelectContent>
                         {departments.map((department) => (
@@ -675,6 +827,11 @@ export default function EmployeesPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {userRole === "Admin" && (
+                      <p className="text-xs text-muted-foreground">
+                        As an Admin, you can only add employees to your own department.
+                      </p>
+                    )}
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="jobTitle">Job Title</Label>
@@ -688,16 +845,25 @@ export default function EmployeesPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="role">Role</Label>
-                    <Select value={newEmployee.role} onValueChange={(value) => handleSelectChange("role", value)}>
+                    <Select
+                      value={newEmployee.role}
+                      onValueChange={(value) => handleSelectChange("role", value)}
+                      disabled={userRole === "Admin"} // Disable for Admin users
+                    >
                       <SelectTrigger id="role">
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Owner">Owner</SelectItem>
-                        <SelectItem value="Admin">Admin</SelectItem>
+                        {userRole === "Owner" && <SelectItem value="Owner">Owner</SelectItem>}
+                        {userRole === "Owner" && <SelectItem value="Admin">Admin</SelectItem>}
                         <SelectItem value="Employee">Employee</SelectItem>
                       </SelectContent>
                     </Select>
+                    {userRole === "Admin" && (
+                      <p className="text-xs text-muted-foreground">
+                        As an Admin, you can only add employees with the Employee role.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
@@ -730,9 +896,6 @@ export default function EmployeesPage() {
               <div>
                 <h3 className="font-medium text-red-800">API Connection Error</h3>
                 <p className="text-sm text-red-600">{apiError}</p>
-                <p className="text-sm text-red-600 mt-1">
-                  Using mock data instead. The system will automatically connect to the API when available.
-                </p>
               </div>
             </div>
           </CardContent>
@@ -751,22 +914,33 @@ export default function EmployeesPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Select value={selectedDepartment} onValueChange={handleDepartmentFilterChange}>
-            <SelectTrigger className="w-[180px]">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                <SelectValue placeholder="Department" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              {departments.map((department) => (
-                <SelectItem key={department.id} value={department.id.toString()}>
-                  {department.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Only show department filter for Owner users */}
+          {userRole === "Owner" && (
+            <Select value={selectedDepartment} onValueChange={handleDepartmentFilterChange}>
+              <SelectTrigger className="w-[180px]">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  <SelectValue placeholder="Department" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((department) => (
+                  <SelectItem key={department.id} value={department.id.toString()}>
+                    {department.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Show department name for Admin users */}
+          {userRole === "Admin" && userDepartmentId && (
+            <div className="flex items-center gap-2 px-3 py-2 border rounded-md">
+              <Filter className="h-4 w-4" />
+              <span>Department: {departments.find((d) => d.id === userDepartmentId)?.name || "Your Department"}</span>
+            </div>
+          )}
 
           <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
             <SelectTrigger className="w-[150px]">
@@ -854,8 +1028,10 @@ export default function EmployeesPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{departments.length}</div>
-            <p className="text-xs text-muted-foreground">Across the company</p>
+            <div className="text-2xl font-bold">{userRole === "Admin" ? 1 : departments.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {userRole === "Admin" ? "Your department" : "Across the company"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -881,8 +1057,12 @@ export default function EmployeesPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Employees</CardTitle>
-          <CardDescription>A list of all employees in your organization.</CardDescription>
+          <CardTitle>{userRole === "Admin" ? "Employees in Your Department" : "All Employees"}</CardTitle>
+          <CardDescription>
+            {userRole === "Admin"
+              ? "A list of employees in your department."
+              : "A list of all employees in your organization."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -906,7 +1086,10 @@ export default function EmployeesPage() {
                 {filteredEmployees.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No employees found. Add your first employee using the "Add Employee" button.
+                      No employees found.{" "}
+                      {canCreateEmployee || userRole === "Admin"
+                        ? 'Add your first employee using the "Add Employee" button.'
+                        : ""}
                     </TableCell>
                   </TableRow>
                 ) : (

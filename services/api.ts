@@ -17,7 +17,7 @@ const api = axios.create({
 // Add a request interceptor to include the auth token in requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token")
+    const token = sessionStorage.getItem("token")
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -67,7 +67,7 @@ export default api
 
 // Helper function to get auth headers with token
 const getAuthHeaders = () => {
-  const token = localStorage.getItem("token") || localStorage.getItem("accessToken")
+  const token = sessionStorage.getItem("token") || sessionStorage.getItem("accessToken")
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -153,6 +153,30 @@ export const departmentService = {
     }
   },
 
+  async updateSubDepartment(subdepartmentId, data) {
+    try {
+      // Use Next.js API route for updating subdepartment
+      const response = await fetch(`/api/departments/sub/${subdepartmentId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          name: data.name,
+          budget: data.budget ? Number.parseInt(data.budget) : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update sub-department")
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error updating sub-department:", error)
+      throw error
+    }
+  },
+
   async deleteDepartment(departmentId) {
     try {
       // Use Next.js API route instead of direct API call
@@ -173,10 +197,30 @@ export const departmentService = {
     }
   },
 
+  async deleteSubDepartment(subdepartmentId) {
+    try {
+      // Use Next.js API route for deleting subdepartment
+      const response = await fetch(`/api/departments/sub/${subdepartmentId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete sub-department")
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error deleting sub-department:", error)
+      throw error
+    }
+  },
+
   async getDepartments() {
     try {
       // Get the company ID from localStorage or another source
-      const companyId = localStorage.getItem("companyId") || 12 // Default to 12 if not available
+      const companyId = sessionStorage.getItem("companyId") || 12 // Default to 12 if not available
 
       // Use Next.js API route instead of direct API call
       const response = await fetch(`/api/departments?companyId=${companyId}`, {

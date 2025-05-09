@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const parentDepartmentId = params.id
+    // Ensure params is properly awaited
+    const { id } = params
+    const parentDepartmentId = id
     const cookieHeader = request.headers.get("cookie")
     const authHeader = request.headers.get("Authorization")
 
@@ -28,33 +30,93 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json(data)
     } catch (error) {
       console.error("Error forwarding to local API:", error)
-
-      // Return mock data when the API is unavailable
-      return NextResponse.json([
-        {
-          id: 3,
-          uuid: "eba312cd-55df-4717-a07a-9c3628556371",
-          name: "Human Resources",
-          companyId: 6,
-          parentDepartmentId: Number(parentDepartmentId),
-          budget: "7500",
-          createdAt: "2025-03-30T17:03:03.296Z",
-          updatedAt: "2025-03-30T17:03:03.296Z",
-        },
-        {
-          id: 6,
-          uuid: "8b7f39bf-36be-4d9e-93fe-f9560dd05c1c",
-          name: "Development",
-          companyId: 12,
-          parentDepartmentId: Number(parentDepartmentId),
-          budget: "20",
-          createdAt: "2025-04-05T20:37:22.374Z",
-          updatedAt: "2025-04-05T20:37:22.374Z",
-        },
-      ])
+      throw error
     }
   } catch (error: any) {
     console.error("Error fetching sub-departments:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+  }
+}
+
+// Add PUT method for updating a subdepartment
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
+  try {
+    // Ensure params is properly awaited
+    const { id } = params
+    const subdepartmentId = id
+    const body = await request.json()
+    const cookieHeader = request.headers.get("cookie")
+    const authHeader = request.headers.get("Authorization")
+
+    console.log(`Forwarding update request to http://localhost:5001/api/v1/subDepartment/${subdepartmentId}`)
+    console.log(`With data:`, body)
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/v1/subDepartment/${subdepartmentId}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`API error response: ${errorText}`)
+        throw new Error(`API responded with status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return NextResponse.json(data)
+    } catch (error) {
+      console.error("Error forwarding to local API:", error)
+      throw error
+    }
+  } catch (error: any) {
+    console.error("Error updating sub-department:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+  }
+}
+
+// Add DELETE method for deleting a subdepartment
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  try {
+    // Ensure params is properly awaited
+    const { id } = params
+    const subdepartmentId = id
+    const cookieHeader = request.headers.get("cookie")
+    const authHeader = request.headers.get("Authorization")
+
+    console.log(`Forwarding delete request to http://localhost:5001/api/v1/subDepartment/${subdepartmentId}`)
+
+    try {
+      const response = await fetch(`http://localhost:5001/api/v1/subDepartment/${subdepartmentId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`API error response: ${errorText}`)
+        throw new Error(`API responded with status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return NextResponse.json(data)
+    } catch (error) {
+      console.error("Error forwarding to local API:", error)
+      throw error
+    }
+  } catch (error: any) {
+    console.error("Error deleting sub-department:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

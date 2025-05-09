@@ -8,12 +8,14 @@ export async function POST(request: Request) {
     // Get all cookies from the request
     const cookieHeader = request.headers.get("cookie")
 
-    console.log(`Forwarding sub-department creation request to http://localhost:5001/api/v1/department/sub`)
-    console.log(`With data:`, body)
+    console.log(
+      `Forwarding sub-department creation request to http://localhost:5001/api/v1/subDepartment/${body.parentDepartmentId}`,
+    )
+    console.log(`With data:`, { name: body.name, budget: body.budget })
 
     // Try to forward the request to the local server
     try {
-      const response = await fetch(`http://localhost:5001/api/v1/department/sub`, {
+      const response = await fetch(`http://localhost:5001/api/v1/subDepartment/${body.parentDepartmentId}`, {
         method: "POST",
         credentials: "include", // Include cookies
         headers: {
@@ -24,7 +26,10 @@ export async function POST(request: Request) {
             ? { Authorization: request.headers.get("Authorization") as string }
             : {}),
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          name: body.name,
+          budget: body.budget,
+        }),
       })
 
       console.log(`Sub-department creation API response status: ${response.status}`)
@@ -43,18 +48,7 @@ export async function POST(request: Request) {
       return NextResponse.json(data)
     } catch (error) {
       console.error("Error forwarding to local API:", error)
-
-      // Return mock data when the API is unavailable
-      return NextResponse.json({
-        id: Math.floor(Math.random() * 1000) + 10,
-        uuid: `mock-subdept-uuid-${Date.now()}`,
-        name: body.name || "New Sub-Department",
-        companyId: body.companyId || 6,
-        parentDepartmentId: body.parentDepartmentId || 1,
-        budget: body.budget || "50000",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+      throw error
     }
   } catch (error: any) {
     console.error("Sub-department creation API error:", error)
