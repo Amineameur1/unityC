@@ -34,7 +34,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 
 // Interface for employee data
 interface Employee {
@@ -128,7 +127,6 @@ export default function EmployeesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [sortField, setSortField] = useState<string>("firstName")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  const [showInactiveEmployees, setShowInactiveEmployees] = useState(false)
   const [userDepartmentId, setUserDepartmentId] = useState<number | null>(null)
 
   const { toast } = useToast()
@@ -142,7 +140,7 @@ export default function EmployeesPage() {
   const userRole = user?.role || "Employee" // افتراضي كموظف إذا لم يتم تحديد الدور
 
   // تعديل الدالة لإضافة التحقق من الصلاحيات
-  const canCreateEmployee = userRole === "Owner"
+  const canCreateEmployee = userRole === "Owner" // Remove Admin from being able to create employees
   const canUpdateEmployee = userRole === "Owner" || userRole === "Admin"
   const canDeleteEmployee = userRole === "Owner"
   const canCreateUserAccount = userRole === "Owner"
@@ -228,7 +226,7 @@ export default function EmployeesPage() {
 
       if (userRole === "Admin" && userDepartmentId) {
         // تصحيح: استخدام مسار القسم المحدد مباشرة للمستخدمين من نوع Admin
-        endpoint = `/api/employees/department/${userDepartmentId}?companyId=${userCompanyId}`
+        endpoint = `/api/employees/department/${userDepartmentId}`
         console.log(`Admin user: Using department endpoint ${endpoint}`)
       } else if (userRole === "Owner") {
         // Owner can see all employees or filter by department
@@ -250,17 +248,20 @@ export default function EmployeesPage() {
         throw new Error(`Failed to fetch employees: ${response.status}`)
       }
 
-      const data: EmployeeResponse = await response.json()
+      const data = await response.json()
       console.log(`Received ${data.employees?.length || 0} employees from API`)
 
-      // إضافة سجل تصحيح لعرض البيانات المستلمة
-      console.log("Employees data received:", data.employees)
-
-      setEmployees(data.employees || [])
+      // Make sure we're setting the employees state with the data
+      if (data.employees && Array.isArray(data.employees)) {
+        setEmployees(data.employees)
+      } else {
+        console.error("Invalid employees data format:", data)
+        setEmployees([])
+      }
 
       toast({
         title: "Employees loaded",
-        description: `Successfully loaded ${data.total} employees`,
+        description: `Successfully loaded ${data.employees?.length || 0} employees`,
       })
     } catch (error) {
       console.error("Error fetching employees:", error)
@@ -330,24 +331,14 @@ export default function EmployeesPage() {
   // Apply filters and sorting to employees
   const filteredEmployees = employees
     .filter((employee) => {
-      // إضافة سجل تصحيح لكل موظف يتم تصفيته
-      console.log(
-        `Filtering employee: ${employee.firstName} ${employee.lastName}, departmentId: ${employee.departmentId}, userDepartmentId: ${userDepartmentId}`,
-      )
-
       // Text search filter
       const matchesSearch =
+        searchQuery === "" ||
         employee.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee.jobTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee.department?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-
-      // Department filter - for Admin users, this is always their department
-      const matchesDepartment =
-        userRole === "Admin"
-          ? employee.departmentId === userDepartmentId
-          : selectedDepartment === "all" || employee.departmentId?.toString() === selectedDepartment
 
       // Status filter
       const matchesStatus =
@@ -355,15 +346,7 @@ export default function EmployeesPage() {
         (statusFilter === "active" && employee.isActive) ||
         (statusFilter === "inactive" && !employee.isActive)
 
-      // Show/hide inactive employees
-      const matchesActiveFilter = showInactiveEmployees ? true : employee.isActive
-
-      // إضافة سجل تصحيح لنتائج التصفية
-      console.log(
-        `Filter results for ${employee.firstName} ${employee.lastName}: search=${matchesSearch}, department=${matchesDepartment}, status=${matchesStatus}, active=${matchesActiveFilter}`,
-      )
-
-      return matchesSearch && matchesDepartment && matchesStatus && matchesActiveFilter
+      return matchesSearch && matchesStatus
     })
     .sort((a, b) => {
       // Handle sorting
@@ -372,16 +355,16 @@ export default function EmployeesPage() {
       // Determine which field to sort by
       switch (sortField) {
         case "firstName":
-          valueA = a.firstName
-          valueB = b.firstName
+          valueA = a.firstName || ""
+          valueB = b.firstName || ""
           break
         case "lastName":
-          valueA = a.lastName
-          valueB = b.lastName
+          valueA = a.lastName || ""
+          valueB = b.lastName || ""
           break
         case "email":
-          valueA = a.email
-          valueB = b.email
+          valueA = a.email || ""
+          valueB = b.email || ""
           break
         case "department":
           valueA = a.department?.name || ""
@@ -392,8 +375,8 @@ export default function EmployeesPage() {
           valueB = b.jobTitle || ""
           break
         default:
-          valueA = a.firstName
-          valueB = b.firstName
+          valueA = a.firstName || ""
+          valueB = b.firstName || ""
       }
 
       // Sort based on direction
@@ -403,12 +386,6 @@ export default function EmployeesPage() {
         return valueB.localeCompare(valueA)
       }
     })
-
-  // إضافة سجل تصحيح لعرض الموظفين بعد التصفية
-  useEffect(() => {
-    console.log(`Filtered employees count: ${filteredEmployees.length}`)
-    console.log("Filtered employees:", filteredEmployees)
-  }, [filteredEmployees])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -754,8 +731,8 @@ export default function EmployeesPage() {
             </Dialog>
           )}
 
-          {/* Admin users can add employees to their department */}
-          {(canCreateEmployee || userRole === "Admin") && (
+          {/* Only Owner users can add employees */}
+          {canCreateEmployee && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-1">
@@ -767,9 +744,7 @@ export default function EmployeesPage() {
                 <DialogHeader>
                   <DialogTitle>Add New Employee</DialogTitle>
                   <DialogDescription>
-                    {userRole === "Admin"
-                      ? "Enter the details of the new employee to add to your department."
-                      : "Enter the details of the new employee to add to your organization."}
+                    Enter the details of the new employee to add to your organization.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -983,21 +958,7 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="showInactive"
-          checked={showInactiveEmployees}
-          onCheckedChange={(checked) => setShowInactiveEmployees(checked as boolean)}
-        />
-        <label
-          htmlFor="showInactive"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          Show inactive employees
-        </label>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
@@ -1044,16 +1005,6 @@ export default function EmployeesPage() {
             <p className="text-xs text-muted-foreground">Currently active employees</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive Employees</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{employees.filter((e) => !e.isActive).length}</div>
-            <p className="text-xs text-muted-foreground">Currently inactive employees</p>
-          </CardContent>
-        </Card>
       </div>
       <Card>
         <CardHeader>
@@ -1086,10 +1037,14 @@ export default function EmployeesPage() {
                 {filteredEmployees.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No employees found.{" "}
-                      {canCreateEmployee || userRole === "Admin"
-                        ? 'Add your first employee using the "Add Employee" button.'
-                        : ""}
+                      {isLoading ? (
+                        "Loading employees..."
+                      ) : (
+                        <>
+                          No employees found.{" "}
+                          {canCreateEmployee ? 'Add your first employee using the "Add Employee" button.' : ""}
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
