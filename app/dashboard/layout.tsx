@@ -16,12 +16,7 @@ import {
   X,
   Layers,
   Shield,
-  FileText,
-  BarChart3,
-  Building,
-  FolderOpen,
-  BookOpen,
-  Settings,
+  User,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -53,7 +48,6 @@ export default function DashboardLayout({
   const [openSections, setOpenSections] = useState({
     organization: true,
     tasks: true,
-    resources: false,
   })
 
   // User state
@@ -116,13 +110,13 @@ export default function DashboardLayout({
     }
   }
 
-  // Update the navItems array to correctly show/hide items for employees
+  // تعديل مصفوفة عناصر التنقل لإزالة العناصر غير المطلوبة وتصحيح الأدوار
   const navItems = [
     {
       title: "Dashboard",
       href: "/dashboard",
       icon: <Home className="h-5 w-5" />,
-      roles: ["Owner", "Admin"],
+      roles: ["Owner"], // Changed from ["Owner", "Admin"] to ["Owner"] only
       category: "main",
     },
     {
@@ -139,13 +133,7 @@ export default function DashboardLayout({
       roles: ["Owner", "Admin"],
       category: "organization",
     },
-    {
-      title: "Companies",
-      href: "/dashboard/companies",
-      icon: <Building className="h-5 w-5" />,
-      roles: ["Owner", "Admin"],
-      category: "organization",
-    },
+    // تمت إزالة Companies
     {
       title: "Tasks",
       href: "/dashboard/tasks",
@@ -157,7 +145,7 @@ export default function DashboardLayout({
       title: "My Tasks",
       href: "/dashboard/tasks/my-tasks",
       icon: <ClipboardList className="h-5 w-5" />,
-      roles: ["Admin", "Employee"], // تم إزالة Owner من هنا
+      roles: ["Employee", "Admin"], // Changed from ["Employee"] to ["Employee", "Admin"]
       category: "tasks",
     },
     {
@@ -167,33 +155,14 @@ export default function DashboardLayout({
       roles: ["Owner", "Admin", "Employee"],
       category: "communication",
     },
+    // تمت إزالة Files
+    // تمت إزالة Resources
     {
-      title: "Files",
-      href: "/dashboard/files",
-      icon: <FolderOpen className="h-5 w-5" />,
+      title: "Profile",
+      href: "/dashboard/settings/profile",
+      icon: <User className="h-5 w-5" />,
       roles: ["Owner", "Admin", "Employee"],
-      category: "resources",
-    },
-    {
-      title: "Resources",
-      href: "/dashboard/resources",
-      icon: <BookOpen className="h-5 w-5" />,
-      roles: ["Owner", "Admin", "Employee"],
-      category: "resources",
-    },
-    {
-      title: "Performance",
-      href: "/dashboard/performance",
-      icon: <BarChart3 className="h-5 w-5" />,
-      roles: ["Owner", "Admin"],
-      category: "reports",
-    },
-    {
-      title: "Audit Logs",
-      href: "/dashboard/audit-logs",
-      icon: <FileText className="h-5 w-5" />,
-      roles: ["Owner", "Admin"],
-      category: "reports",
+      category: "settings",
     },
   ]
 
@@ -228,7 +197,7 @@ export default function DashboardLayout({
 
   // Only show main navigation items in the horizontal navbar
   const horizontalNavItems = filteredNavItems.filter((item) =>
-    ["main", "organization", "tasks", "communication"].includes(item.category),
+    ["main", "organization", "tasks", "communication", "settings"].includes(item.category),
   )
 
   // Toggle a collapsible section
@@ -241,261 +210,209 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Horizontal navbar for desktop */}
+      {/* Horizontal navbar for all users */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-16 items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-2">
-            {/* Mobile menu button - moved here for better positioning on small screens */}
-            <Sheet open={open} onOpenChange={setOpen}>
-              <Button variant="outline" size="icon" className="mr-2 md:hidden" onClick={() => setOpen(true)}>
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle navigation menu</span>
-              </Button>
-              <SheetContent side="left" className="w-80 sm:max-w-sm p-0">
-                {/* Sheet content remains the same */}
-                <div className="flex h-full flex-col">
-                  <div className="flex items-center border-b px-4 py-3">
-                    <Link href="/" className="flex items-center gap-2 font-semibold" onClick={() => setOpen(false)}>
-                      <div className="rounded-md bg-primary p-1">
-                        <Layers className="h-6 w-6 text-primary-foreground" />
-                      </div>
-                      <span className="text-lg">EnterpriseOS</span>
-                    </Link>
-                    <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setOpen(false)}>
-                      <X className="h-5 w-5" />
-                      <span className="sr-only">Close navigation menu</span>
-                    </Button>
-                  </div>
-
-                  {/* Rest of the sheet content remains unchanged */}
-                  {/* User profile section */}
-                  <div className="border-b px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src="/placeholder.svg?height=40&width=40" alt={currentUser.name} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {currentUser.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{currentUser.name}</span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          {currentUser.role === "Owner" && <Shield className="h-3 w-3 text-primary" />}
-                          {currentUser.role}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <nav className="flex-1 overflow-auto py-2" aria-label="Main Navigation">
-                    {/* Main Dashboard */}
-                    {groupedNavItems.main && (
-                      <div className="px-3 py-2">
-                        {groupedNavItems.main.map((item, index) => (
-                          <Link
-                            key={index}
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                              "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
-                              pathname === item.href ? "bg-muted font-medium" : "transparent",
-                            )}
-                          >
-                            {item.icon}
-                            <span>{item.title}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Organization section */}
-                    {groupedNavItems.organization && (
-                      <div className="px-3 py-2">
-                        <div
-                          className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
-                          onClick={() => toggleSection("organization")}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Building className="h-5 w-5 text-muted-foreground" />
-                            <span>Organization</span>
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 text-muted-foreground transition-transform",
-                              openSections.organization && "rotate-180",
-                            )}
-                          />
+            {/* Mobile menu button - only for admin and owner */}
+            {(currentUser.role === "Admin" || currentUser.role === "Owner") && (
+              <Sheet open={open} onOpenChange={setOpen}>
+                <Button variant="outline" size="icon" className="mr-2 md:hidden" onClick={() => setOpen(true)}>
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+                <SheetContent side="left" className="w-80 sm:max-w-sm p-0">
+                  {/* Sheet content remains the same */}
+                  <div className="flex h-full flex-col">
+                    <div className="flex items-center border-b px-4 py-3">
+                      <Link href="/" className="flex items-center gap-2 font-semibold" onClick={() => setOpen(false)}>
+                        <div className="rounded-md bg-primary p-1">
+                          <Layers className="h-6 w-6 text-primary-foreground" />
                         </div>
-                        {openSections.organization && (
-                          <div className="space-y-1 pl-10 pt-1">
-                            {groupedNavItems.organization.map((item, index) => (
-                              <Link
-                                key={index}
-                                href={item.href}
-                                onClick={() => setOpen(false)}
-                                className={cn(
-                                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
-                                  pathname === item.href ? "bg-muted/60 font-medium" : "text-muted-foreground",
-                                )}
-                              >
-                                {item.title}
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Tasks section */}
-                    {groupedNavItems.tasks && (
-                      <div className="px-3 py-2">
-                        <div
-                          className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
-                          onClick={() => toggleSection("tasks")}
-                        >
-                          <div className="flex items-center gap-3">
-                            <ClipboardList className="h-5 w-5 text-muted-foreground" />
-                            <span>Tasks</span>
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 text-muted-foreground transition-transform",
-                              openSections.tasks && "rotate-180",
-                            )}
-                          />
-                        </div>
-                        {openSections.tasks && (
-                          <div className="space-y-1 pl-10 pt-1">
-                            {groupedNavItems.tasks.map((item, index) => (
-                              <Link
-                                key={index}
-                                href={item.href}
-                                onClick={() => setOpen(false)}
-                                className={cn(
-                                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
-                                  pathname === item.href ? "bg-muted/60 font-medium" : "text-muted-foreground",
-                                )}
-                              >
-                                {item.title}
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Communication section */}
-                    {groupedNavItems.communication && (
-                      <div className="px-3 py-2">
-                        {groupedNavItems.communication.map((item, index) => (
-                          <Link
-                            key={index}
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                              "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
-                              pathname === item.href ? "bg-muted font-medium" : "transparent",
-                            )}
-                          >
-                            {item.icon}
-                            <span>{item.title}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Resources section */}
-                    {groupedNavItems.resources && (
-                      <div className="px-3 py-2">
-                        <div
-                          className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
-                          onClick={() => toggleSection("resources")}
-                        >
-                          <div className="flex items-center gap-3">
-                            <BookOpen className="h-5 w-5 text-muted-foreground" />
-                            <span>Resources</span>
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 text-muted-foreground transition-transform",
-                              openSections.resources && "rotate-180",
-                            )}
-                          />
-                        </div>
-                        {openSections.resources && (
-                          <div className="space-y-1 pl-10 pt-1">
-                            {groupedNavItems.resources.map((item, index) => (
-                              <Link
-                                key={index}
-                                href={item.href}
-                                onClick={() => setOpen(false)}
-                                className={cn(
-                                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
-                                  pathname === item.href ? "bg-muted/60 font-medium" : "text-muted-foreground",
-                                )}
-                              >
-                                {item.title}
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Reports section */}
-                    {groupedNavItems.reports && (
-                      <div className="px-3 py-2">
-                        {groupedNavItems.reports.map((item, index) => (
-                          <Link
-                            key={index}
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className={cn(
-                              "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
-                              pathname === item.href ? "bg-muted font-medium" : "transparent",
-                            )}
-                          >
-                            {item.icon}
-                            <span>{item.title}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Settings */}
-                    <div className="px-3 py-2">
-                      <Link
-                        href="/dashboard/settings"
-                        onClick={() => setOpen(false)}
-                        className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
-                          pathname.startsWith("/dashboard/settings") ? "bg-muted font-medium" : "transparent",
-                        )}
-                      >
-                        <Settings className="h-5 w-5" />
-                        <span>Settings</span>
+                        <span className="text-lg">EnterpriseOS</span>
                       </Link>
+                      <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setOpen(false)}>
+                        <X className="h-5 w-5" />
+                        <span className="sr-only">Close navigation menu</span>
+                      </Button>
                     </div>
-                  </nav>
 
-                  <div className="border-t px-3 py-4">
-                    <button
-                      onClick={() => {
-                        setOpen(false)
-                        handleLogout()
-                      }}
-                      className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-red-500 transition-colors hover:bg-muted"
-                    >
-                      <LogOut className="h-5 w-5" />
-                      <span>Logout</span>
-                    </button>
+                    {/* User profile section */}
+                    <div className="border-b px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src="/placeholder.svg?height=40&width=40" alt={currentUser.name} />
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {currentUser.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{currentUser.name}</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            {currentUser.role === "Owner" && <Shield className="h-3 w-3 text-primary" />}
+                            {currentUser.role}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <nav className="flex-1 overflow-auto py-2" aria-label="Main Navigation">
+                      {/* Main Dashboard */}
+                      {groupedNavItems.main && (
+                        <div className="px-3 py-2">
+                          {groupedNavItems.main.map((item, index) => (
+                            <Link
+                              key={index}
+                              href={item.href}
+                              onClick={() => setOpen(false)}
+                              className={cn(
+                                "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
+                                pathname === item.href ? "bg-muted font-medium" : "transparent",
+                              )}
+                            >
+                              {item.icon}
+                              <span>{item.title}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Organization section */}
+                      {groupedNavItems.organization && (
+                        <div className="px-3 py-2">
+                          <div
+                            className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                            onClick={() => toggleSection("organization")}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Layers className="h-5 w-5 text-muted-foreground" />
+                              <span>Organization</span>
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 text-muted-foreground transition-transform",
+                                openSections.organization && "rotate-180",
+                              )}
+                            />
+                          </div>
+                          {openSections.organization && (
+                            <div className="space-y-1 pl-10 pt-1">
+                              {groupedNavItems.organization.map((item, index) => (
+                                <Link
+                                  key={index}
+                                  href={item.href}
+                                  onClick={() => setOpen(false)}
+                                  className={cn(
+                                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
+                                    pathname === item.href ? "bg-muted/60 font-medium" : "text-muted-foreground",
+                                  )}
+                                >
+                                  {item.title}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Tasks section */}
+                      {groupedNavItems.tasks && (
+                        <div className="px-3 py-2">
+                          <div
+                            className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                            onClick={() => toggleSection("tasks")}
+                          >
+                            <div className="flex items-center gap-3">
+                              <ClipboardList className="h-5 w-5 text-muted-foreground" />
+                              <span>Tasks</span>
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 text-muted-foreground transition-transform",
+                                openSections.tasks && "rotate-180",
+                              )}
+                            />
+                          </div>
+                          {openSections.tasks && (
+                            <div className="space-y-1 pl-10 pt-1">
+                              {groupedNavItems.tasks.map((item, index) => (
+                                <Link
+                                  key={index}
+                                  href={item.href}
+                                  onClick={() => setOpen(false)}
+                                  className={cn(
+                                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
+                                    pathname === item.href ? "bg-muted/60 font-medium" : "text-muted-foreground",
+                                  )}
+                                >
+                                  {item.title}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Communication section */}
+                      {groupedNavItems.communication && (
+                        <div className="px-3 py-2">
+                          {groupedNavItems.communication.map((item, index) => (
+                            <Link
+                              key={index}
+                              href={item.href}
+                              onClick={() => setOpen(false)}
+                              className={cn(
+                                "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
+                                pathname === item.href ? "bg-muted font-medium" : "transparent",
+                              )}
+                            >
+                              {item.icon}
+                              <span>{item.title}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Settings section */}
+                      {groupedNavItems.settings && (
+                        <div className="px-3 py-2">
+                          {groupedNavItems.settings.map((item, index) => (
+                            <Link
+                              key={index}
+                              href={item.href}
+                              onClick={() => setOpen(false)}
+                              className={cn(
+                                "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
+                                pathname === item.href ? "bg-muted font-medium" : "transparent",
+                              )}
+                            >
+                              {item.icon}
+                              <span>{item.title}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </nav>
+
+                    <div className="border-t px-3 py-4">
+                      <button
+                        onClick={() => {
+                          setOpen(false)
+                          handleLogout()
+                        }}
+                        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-red-500 transition-colors hover:bg-muted"
+                      >
+                        <LogOut className="h-5 w-5" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
+            )}
 
             <Link href="/" className="flex items-center gap-2 font-semibold md:text-lg">
               <div className="rounded-md bg-primary p-1">
@@ -505,8 +422,10 @@ export default function DashboardLayout({
             </Link>
           </div>
 
-          {/* Desktop navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
+          {/* Desktop navigation - horizontal for employees, hidden for admin/owner */}
+          <nav
+            className={cn("flex items-center space-x-1", currentUser.role === "Employee" ? "flex" : "hidden md:hidden")}
+          >
             {horizontalNavItems.length > 0
               ? horizontalNavItems.map((item, index) => (
                   <Link
@@ -521,9 +440,10 @@ export default function DashboardLayout({
                     <span>{item.title}</span>
                   </Link>
                 ))
-              : // Fallback navigation items if filtered list is empty
-                navItems
-                  .filter((item) => ["main", "organization", "tasks", "communication"].includes(item.category))
+              : navItems
+                  .filter((item) =>
+                    ["main", "organization", "tasks", "communication", "settings"].includes(item.category),
+                  )
                   .map((item, index) => (
                     <Link
                       key={index}
@@ -581,7 +501,159 @@ export default function DashboardLayout({
           </div>
         </div>
       </header>
-      <main className="flex-1 overflow-auto">{children}</main>
+
+      {/* Main content area with sidebar for admin/owner */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar for admin and owner - desktop only */}
+        {(currentUser.role === "Admin" || currentUser.role === "Owner") && (
+          <aside className="hidden md:flex md:w-64 md:flex-col md:border-r">
+            <div className="flex flex-col overflow-y-auto p-4">
+              <nav className="flex-1 space-y-2" aria-label="Sidebar">
+                {/* Main Dashboard */}
+                {groupedNavItems.main && (
+                  <div className="py-2">
+                    {groupedNavItems.main.map((item, index) => (
+                      <Link
+                        key={index}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
+                          pathname === item.href ? "bg-muted font-medium" : "transparent",
+                        )}
+                      >
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {/* Organization section */}
+                {groupedNavItems.organization && (
+                  <div className="py-2">
+                    <div
+                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                      onClick={() => toggleSection("organization")}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Layers className="h-5 w-5 text-muted-foreground" />
+                        <span>Organization</span>
+                      </div>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          openSections.organization && "rotate-180",
+                        )}
+                      />
+                    </div>
+                    {openSections.organization && (
+                      <div className="space-y-1 pl-10 pt-1">
+                        {groupedNavItems.organization.map((item, index) => (
+                          <Link
+                            key={index}
+                            href={item.href}
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
+                              pathname === item.href ? "bg-muted/60 font-medium" : "text-muted-foreground",
+                            )}
+                          >
+                            {item.title}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tasks section */}
+                {groupedNavItems.tasks && (
+                  <div className="py-2">
+                    <div
+                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+                      onClick={() => toggleSection("tasks")}
+                    >
+                      <div className="flex items-center gap-3">
+                        <ClipboardList className="h-5 w-5 text-muted-foreground" />
+                        <span>Tasks</span>
+                      </div>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          openSections.tasks && "rotate-180",
+                        )}
+                      />
+                    </div>
+                    {openSections.tasks && (
+                      <div className="space-y-1 pl-10 pt-1">
+                        {groupedNavItems.tasks.map((item, index) => (
+                          <Link
+                            key={index}
+                            href={item.href}
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
+                              pathname === item.href ? "bg-muted/60 font-medium" : "text-muted-foreground",
+                            )}
+                          >
+                            {item.title}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Communication section */}
+                {groupedNavItems.communication && (
+                  <div className="py-2">
+                    {groupedNavItems.communication.map((item, index) => (
+                      <Link
+                        key={index}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
+                          pathname === item.href ? "bg-muted font-medium" : "transparent",
+                        )}
+                      >
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {/* Settings section */}
+                {groupedNavItems.settings && (
+                  <div className="py-2">
+                    {groupedNavItems.settings.map((item, index) => (
+                      <Link
+                        key={index}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted",
+                          pathname === item.href ? "bg-muted font-medium" : "transparent",
+                        )}
+                      >
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </nav>
+            </div>
+          </aside>
+        )}
+
+        {/* Main content */}
+        <main
+          className={cn(
+            "flex-1 overflow-auto",
+            currentUser.role === "Admin" || currentUser.role === "Owner" ? "md:ml-0" : "",
+          )}
+        >
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

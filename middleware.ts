@@ -60,9 +60,13 @@ export function middleware(request: NextRequest) {
       }
     }
 
-    // Redirect employee users to my-tasks
-    if (userData && userData.role === "Employee" && request.nextUrl.pathname === "/dashboard") {
-      return NextResponse.redirect(new URL("/dashboard/tasks/my-tasks", request.url))
+    // توجيه المستخدمين بناءً على أدوارهم
+    if (userData && request.nextUrl.pathname === "/dashboard") {
+      // توجيه الموظفين إلى صفحة المهام الخاصة بهم
+      if (userData.role === "Employee") {
+        return NextResponse.redirect(new URL("/dashboard/tasks/my-tasks", request.url))
+      }
+      // الأدمن والمالك يبقون في صفحة لوحة التحكم الرئيسية
     }
   } catch (error) {
     console.error("Error parsing user data in middleware:", error)

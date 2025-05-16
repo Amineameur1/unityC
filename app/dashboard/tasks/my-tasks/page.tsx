@@ -8,21 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Plus, Search, Filter, MoreHorizontal, MessageSquare, CalendarDays } from "lucide-react"
+import { Search, Filter, MoreHorizontal, MessageSquare, CalendarDays } from "lucide-react"
 import { format } from "date-fns"
 import { useToast } from "@/components/ui/use-toast"
 import { fetchWithAuth } from "@/services/api-client"
@@ -60,6 +46,100 @@ interface Department {
   name: string
 }
 
+// Mock data in English
+const mockTasks: Task[] = [
+  {
+    id: 1,
+    title: "Develop Dashboard UI",
+    description: "Create a new user interface for the dashboard using React and Tailwind CSS",
+    assignedTo: 1,
+    departmentId: 1,
+    status: "To Do",
+    priority: "High",
+    deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+    updatedAt: new Date().toISOString(),
+    comments: 2,
+    department: { id: 1, name: "Development" },
+    employee: { id: 1, firstName: "John", lastName: "Doe" },
+  },
+  {
+    id: 2,
+    title: "Fix Login Issues",
+    description: "Address issues related to the login process and password reset",
+    assignedTo: 1,
+    departmentId: 1,
+    status: "In Progress",
+    priority: "High",
+    deadline: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day from now
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    updatedAt: new Date().toISOString(),
+    comments: 5,
+    department: { id: 1, name: "Development" },
+    employee: { id: 1, firstName: "John", lastName: "Doe" },
+  },
+  {
+    id: 3,
+    title: "Improve Database Performance",
+    description: "Optimize database queries and improve overall application performance",
+    assignedTo: 1,
+    departmentId: 2,
+    status: "Completed",
+    priority: "Medium",
+    deadline: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago (expired)
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week ago
+    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Updated 1 day ago
+    comments: 0,
+    department: { id: 2, name: "Template" },
+    employee: { id: 1, firstName: "John", lastName: "Doe" },
+  },
+  {
+    id: 4,
+    title: "Create Statistics Page",
+    description: "Develop a statistics page that displays key company and employee data",
+    assignedTo: 1,
+    departmentId: 3,
+    status: "To Do",
+    priority: "Medium",
+    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+    updatedAt: new Date().toISOString(),
+    comments: 1,
+    department: { id: 3, name: "Dev" },
+    employee: { id: 1, firstName: "John", lastName: "Doe" },
+  },
+  {
+    id: 5,
+    title: "Update API Documentation",
+    description: "Update API documentation to reflect recent changes in endpoints and parameters",
+    assignedTo: 1,
+    departmentId: 1,
+    status: "In Progress",
+    priority: "Low",
+    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 week from now
+    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days ago
+    updatedAt: new Date().toISOString(),
+    comments: 3,
+    department: { id: 1, name: "Development" },
+    employee: { id: 1, firstName: "John", lastName: "Doe" },
+  },
+  {
+    id: 6,
+    title: "Test System Functions",
+    description: "Conduct comprehensive testing of all system functions and ensure no bugs",
+    assignedTo: 1,
+    departmentId: 1,
+    status: "To Do",
+    priority: "High",
+    deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+    updatedAt: new Date().toISOString(),
+    comments: 0,
+    department: { id: 1, name: "Development" },
+    employee: { id: 1, firstName: "John", lastName: "Doe" },
+  },
+]
+
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([])
@@ -85,6 +165,12 @@ export default function MyTasksPage() {
 
   // Fetch tasks
   useEffect(() => {
+    // إذا كان المستخدم هو المالك، قم بإعادة توجيهه إلى صفحة المهام الرئيسية
+    if (user?.role === "Owner") {
+      window.location.href = "/dashboard/tasks"
+      return
+    }
+
     const fetchTasks = async () => {
       setIsLoading(true)
       try {
@@ -108,106 +194,8 @@ export default function MyTasksPage() {
         setFilteredTasks(formattedTasks)
       } catch (error) {
         console.error("Error fetching tasks:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load tasks. Please try again later.",
-          variant: "destructive",
-        })
 
-        // Mock data for development
-        const mockTasks: Task[] = [
-          {
-            id: 1,
-            title: "Finish user onboarding",
-            description: "Complete the user onboarding flow for new employees",
-            assignedTo: 1,
-            departmentId: 1,
-            status: "To Do",
-            priority: "High",
-            deadline: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            comments: 1,
-            department: { id: 1, name: "Development" },
-            employee: { id: 1, firstName: "John", lastName: "Doe" },
-          },
-          {
-            id: 2,
-            title: "Work in progress Dashboard",
-            description: "Implement the WIP dashboard for project tracking",
-            assignedTo: 1,
-            departmentId: 1,
-            status: "In Progress",
-            priority: "Medium",
-            deadline: new Date().toISOString(), // Today
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            comments: 1,
-            department: { id: 1, name: "Development" },
-            employee: { id: 1, firstName: "John", lastName: "Doe" },
-          },
-          {
-            id: 3,
-            title: "Kanban manager",
-            description: "Create a kanban board for task management",
-            assignedTo: 1,
-            departmentId: 2,
-            status: "In Progress",
-            priority: "Medium",
-            deadline: new Date(Date.now() - 86400000 * 7).toISOString(), // A week ago
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            comments: 8,
-            department: { id: 2, name: "Template" },
-            employee: { id: 1, firstName: "John", lastName: "Doe" },
-          },
-          {
-            id: 4,
-            title: "Manage internal feedback",
-            description: "Implement a system for collecting and managing internal feedback",
-            assignedTo: 1,
-            departmentId: 3,
-            status: "Completed",
-            priority: "Low",
-            deadline: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            comments: 1,
-            department: { id: 3, name: "Dev" },
-            employee: { id: 1, firstName: "John", lastName: "Doe" },
-          },
-          {
-            id: 5,
-            title: "Product Update - Q4 (2024)",
-            description: "Prepare the Q4 product update presentation",
-            assignedTo: 1,
-            departmentId: 1,
-            status: "In Progress",
-            priority: "High",
-            deadline: new Date(Date.now() + 86400000 * 14).toISOString(), // Two weeks from now
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            comments: 0,
-            department: { id: 1, name: "Development" },
-            employee: { id: 1, firstName: "John", lastName: "Doe" },
-          },
-          {
-            id: 6,
-            title: "React Native with Flutter",
-            description: "Research integration possibilities between React Native and Flutter",
-            assignedTo: 1,
-            departmentId: 1,
-            status: "Completed",
-            priority: "Medium",
-            deadline: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            comments: 1,
-            department: { id: 1, name: "Development" },
-            employee: { id: 1, firstName: "John", lastName: "Doe" },
-          },
-        ]
-
+        // استخدام البيانات الاحتياطية في حالة فشل الاتصال بدون عرض رسالة
         setTasks(mockTasks)
         setFilteredTasks(mockTasks)
       } finally {
@@ -216,7 +204,7 @@ export default function MyTasksPage() {
     }
 
     fetchTasks()
-  }, [toast])
+  }, [toast, user])
 
   // Fetch departments for the dropdown menus
   useEffect(() => {
@@ -546,8 +534,6 @@ export default function MyTasksPage() {
           Completed <span className="ml-1 text-xs bg-primary/20 px-1.5 py-0.5 rounded-full">{completedCount}</span>
         </Button>
       </div>
-
-
 
       {isLoading ? (
         <div className="flex justify-center items-center py-8 text-gray-600">

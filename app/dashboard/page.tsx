@@ -1,376 +1,369 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/components/ui/use-toast"
 import {
   BarChart,
-  Building2,
-  ClipboardList,
-  Package,
-  Users,
-  ArrowUp,
-  Activity,
-  Shield,
-  DollarSign,
-  FileText,
-  Database,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
-import { useAuth } from "@/components/auth-provider"
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+} from "recharts"
+import { Users, Layers, ClipboardList, CheckCircle, Clock, AlertCircle, ArrowRight, MessageSquare } from "lucide-react"
+
+// Sample data for charts
+const taskStatusData = [
+  { name: "Completed", value: 12, color: "#10b981" },
+  { name: "In Progress", value: 8, color: "#3b82f6" },
+  { name: "Pending", value: 5, color: "#f59e0b" },
+]
+
+const departmentData = [
+  { name: "HR", employees: 8 },
+  { name: "Engineering", employees: 15 },
+  { name: "Marketing", employees: 6 },
+  { name: "Finance", employees: 4 },
+  { name: "Operations", employees: 7 },
+]
+
+const activityData = [
+  { day: "Mon", tasks: 5 },
+  { day: "Tue", tasks: 8 },
+  { day: "Wed", tasks: 12 },
+  { day: "Thu", tasks: 10 },
+  { day: "Fri", tasks: 15 },
+  { day: "Sat", tasks: 7 },
+  { day: "Sun", tasks: 3 },
+]
 
 export default function DashboardPage() {
-  const { user } = useAuth()
-  const userRole = user?.role || "Employee" // Default as Employee if role not specified
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    employees: 0,
+    departments: 0,
+    tasks: 0,
+    announcements: 0,
+  })
+  const [recentAnnouncements, setRecentAnnouncements] = useState([])
   const router = useRouter()
+  const { toast } = useToast()
+  const [currentUser, setCurrentUser] = useState<{
+    role: string
+  } | null>(null)
 
-  // Redirect employees to tasks page
   useEffect(() => {
-    if (userRole === "Employee") {
-      router.push("/dashboard/tasks/my-tasks")
-    }
-  }, [userRole, router])
+    // Get user info from sessionStorage
+    const userStr = sessionStorage.getItem("user")
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr)
+        setCurrentUser({
+          role: userData.role,
+        })
 
-  if (userRole === "Employee") {
+        // إذا كان المستخدم هو موظف أو أدمن، قم بإعادة توجيهه إلى صفحة المهام الخاصة به
+        if (userData.role === "Employee" || userData.role === "Admin") {
+          router.push("/dashboard/tasks/my-tasks")
+          return
+        }
+      } catch (error) {
+        console.error("Error parsing user data:", error)
+      }
+    }
+  }, [router])
+
+  useEffect(() => {
+    if (!currentUser) return
+
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true)
+        // In a real app, you would fetch this data from your API
+        // For now, we'll simulate a delay and use mock data
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // Mock data
+        setStats({
+          employees: 40,
+          departments: 5,
+          tasks: 25,
+          announcements: 8,
+        })
+
+        setRecentAnnouncements([
+          {
+            id: "1",
+            title: "Company Meeting",
+            content: "All-hands meeting this Friday at 3 PM in the main conference room.",
+            createdAt: "2023-06-15T10:00:00Z",
+          },
+          {
+            id: "2",
+            title: "New Project Launch",
+            content: "We're excited to announce the launch of our new project next week.",
+            createdAt: "2023-06-14T14:30:00Z",
+          },
+          {
+            id: "3",
+            title: "Holiday Schedule",
+            content: "Please review the updated holiday schedule for the upcoming months.",
+            createdAt: "2023-06-13T09:15:00Z",
+          },
+        ])
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err)
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data. Please try again later.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [currentUser, toast])
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(date)
+  }
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <span className="ml-2">Redirecting to tasks...</span>
+      <div className="container mx-auto py-6">
+        <div className="mb-6">
+          <Skeleton className="h-10 w-1/4" />
+          <Skeleton className="mt-2 h-4 w-1/3" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="p-4">
+                <Skeleton className="h-6 w-3/4" />
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <Skeleton className="h-10 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="p-4">
+                <Skeleton className="h-6 w-3/4" />
+              </CardHeader>
+              <CardContent className="p-4">
+                <Skeleton className="h-[200px] w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 md:gap-8 md:p-8">
-      {/* Header section */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">{userRole} Dashboard</h1>
-          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-            <Shield className="h-3 w-3 mr-1" /> {userRole} Access
-          </Badge>
-        </div>
-        <p className="text-muted-foreground">Welcome to EnterpriseOS, here's an overview of your organization</p>
+    <div className="container mx-auto py-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">Welcome back to your enterprise management system</p>
       </div>
 
-      {/* Rest of the dashboard content remains the same */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/20">
-            <CardTitle className="text-sm font-medium">Total Companies</CardTitle>
-            <div className="rounded-full bg-blue-500/20 p-1">
-              <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">12</div>
-            <div className="flex items-center gap-2">
-              <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+2</span>
-              <span className="ml-1">from last month</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/20">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between p-4">
             <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-            <div className="rounded-full bg-purple-500/20 p-1">
-              <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            </div>
+            <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">245</div>
-            <div className="flex items-center gap-2">
-              <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+18</span>
-              <span className="ml-1">from last month</span>
-            </div>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold">{stats.employees}</div>
+            <Button
+              variant="link"
+              className="px-0 text-xs text-muted-foreground"
+              onClick={() => router.push("/dashboard/employees")}
+            >
+              View all employees
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/20">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between p-4">
+            <CardTitle className="text-sm font-medium">Departments</CardTitle>
+            <Layers className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold">{stats.departments}</div>
+            <Button
+              variant="link"
+              className="px-0 text-xs text-muted-foreground"
+              onClick={() => router.push("/dashboard/departments")}
+            >
+              View all departments
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between p-4">
             <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-            <div className="rounded-full bg-amber-500/20 p-1">
-              <ClipboardList className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </div>
+            <ClipboardList className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">89</div>
-            <div className="flex items-center gap-2">
-              <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+7</span>
-              <span className="ml-1">from yesterday</span>
-            </div>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold">{stats.tasks}</div>
+            <Button
+              variant="link"
+              className="px-0 text-xs text-muted-foreground"
+              onClick={() => router.push("/dashboard/tasks")}
+            >
+              View all tasks
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/20">
-            <CardTitle className="text-sm font-medium">Resources</CardTitle>
-            <div className="rounded-full bg-green-500/20 p-1">
-              <Package className="h-4 w-4 text-green-600 dark:text-green-400" />
-            </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between p-4">
+            <CardTitle className="text-sm font-medium">Announcements</CardTitle>
+            <MessageSquare className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">356</div>
-            <div className="flex items-center gap-2">
-              <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+24</span>
-              <span className="ml-1">from last month</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Owner-specific cards */}
-      {userRole === "Owner" && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="overflow-hidden border-none shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-indigo-50 to-indigo-100 dark:from-indigo-950/50 dark:to-indigo-900/20">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <div className="rounded-full bg-indigo-500/20 p-1">
-                <DollarSign className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">$1,245,890</div>
-              <div className="flex items-center gap-2">
-                <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
-                <span className="text-green-500 font-medium">+8.2%</span>
-                <span className="ml-1">from last quarter</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="overflow-hidden border-none shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-rose-50 to-rose-100 dark:from-rose-950/50 dark:to-rose-900/20">
-              <CardTitle className="text-sm font-medium">System Health</CardTitle>
-              <div className="rounded-full bg-rose-500/20 p-1">
-                <Activity className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">98.7%</div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                <span>Uptime this month</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="overflow-hidden border-none shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gradient-to-r from-cyan-50 to-cyan-100 dark:from-cyan-950/50 dark:to-cyan-900/20">
-              <CardTitle className="text-sm font-medium">Audit Logs</CardTitle>
-              <div className="rounded-full bg-cyan-500/20 p-1">
-                <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">1,245</div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                <span>Events in the last 7 days</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Rest of the dashboard content remains the same */}
-      <div className="grid gap-4 md:grid-cols-7">
-        <Card className="col-span-4 border-none shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Performance Overview</CardTitle>
-              <CardDescription>Company performance metrics for the current quarter</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                Weekly
-              </Button>
-              <Button variant="outline" size="sm" className="bg-primary/10">
-                Monthly
-              </Button>
-              <Button variant="outline" size="sm">
-                Quarterly
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
-              <div className="flex h-full items-center justify-center rounded-md border border-dashed p-4">
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <Activity className="h-8 w-8 text-muted-foreground" />
-                  <div className="text-sm font-medium">Performance chart will be displayed here</div>
-                  <div className="text-xs text-muted-foreground">Showing company performance metrics</div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3 border-none shadow-md">
-          <CardHeader>
-            <CardTitle>Recent Activities</CardTitle>
-            <CardDescription>Latest activities across your organization</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                {
-                  title: "System update completed",
-                  description: "System updated to version 2.5.0",
-                  timestamp: "1 hour ago",
-                  icon: <Database className="h-4 w-4 text-indigo-500" />,
-                },
-                {
-                  title: "New company registered",
-                  description: "TechSolutions Inc. was added to the system",
-                  timestamp: "3 hours ago",
-                  icon: <Building2 className="h-4 w-4 text-blue-500" />,
-                },
-                {
-                  title: "Salary adjustments approved",
-                  description: "Q3 salary adjustments were approved",
-                  timestamp: "Yesterday",
-                  icon: <DollarSign className="h-4 w-4 text-green-500" />,
-                },
-                {
-                  title: "New employee joined",
-                  description: "Sarah Johnson joined Marketing department",
-                  timestamp: "2 days ago",
-                  icon: <Users className="h-4 w-4 text-purple-500" />,
-                },
-                {
-                  title: "Security audit completed",
-                  description: "Quarterly security audit was completed",
-                  timestamp: "3 days ago",
-                  icon: <Shield className="h-4 w-4 text-red-500" />,
-                },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-start gap-4">
-                  <div className="rounded-full bg-primary/10 p-2">{activity.icon}</div>
-                  <div className="grid gap-1">
-                    <p className="text-sm font-medium leading-none">{activity.title}</p>
-                    <p className="text-sm text-muted-foreground">{activity.description}</p>
-                    <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold">{stats.announcements}</div>
+            <Button
+              variant="link"
+              className="px-0 text-xs text-muted-foreground"
+              onClick={() => router.push("/dashboard/announcements")}
+            >
+              View all announcements
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-none shadow-md">
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
-            <CardDescription>Current system status and health</CardDescription>
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader className="p-4">
+            <CardTitle>Task Status</CardTitle>
+            <CardDescription>Overview of current task statuses</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: "API Services", status: "Operational", health: 100 },
-                { name: "Database", status: "Operational", health: 98 },
-                { name: "Storage", status: "Operational", health: 95 },
-                { name: "Authentication", status: "Operational", health: 100 },
-                { name: "Background Jobs", status: "Operational", health: 97 },
-              ].map((service, index) => (
-                <div key={index} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`h-2 w-2 rounded-full ${service.health > 90 ? "bg-green-500" : "bg-yellow-500"}`}
-                      ></div>
-                      <p className="text-sm font-medium">{service.name}</p>
-                    </div>
-                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                      {service.status}
-                    </Badge>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-muted">
-                    <div className="h-2 rounded-full bg-green-500" style={{ width: `${service.health}%` }} />
-                  </div>
-                </div>
-              ))}
-              <Button variant="ghost" size="sm" className="w-full mt-2">
-                View System Details
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-md">
-          <CardHeader>
-            <CardTitle>Recent Audit Logs</CardTitle>
-            <CardDescription>Latest system audit events</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {[
-                { event: "User Login", user: "admin@example.com", time: "10:45 AM", type: "auth" },
-                { event: "Company Created", user: "john@example.com", time: "Yesterday", type: "data" },
-                { event: "Permission Changed", user: "admin@example.com", time: "Yesterday", type: "security" },
-                { event: "Employee Added", user: "sarah@example.com", time: "2 days ago", type: "data" },
-                { event: "System Backup", user: "system", time: "3 days ago", type: "system" },
-              ].map((log, index) => (
-                <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">{log.event}</p>
-                    <p className="text-xs text-muted-foreground">By: {log.user}</p>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={
-                      log.type === "security"
-                        ? "bg-red-100 text-red-800 border-red-200"
-                        : log.type === "auth"
-                          ? "bg-blue-100 text-blue-800 border-blue-200"
-                          : log.type === "data"
-                            ? "bg-purple-100 text-purple-800 border-purple-200"
-                            : "bg-gray-100 text-gray-800 border-gray-200"
-                    }
+          <CardContent className="p-4">
+            <div className="flex items-center justify-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={taskStatusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
                   >
-                    {log.type}
-                  </Badge>
-                </div>
-              ))}
-              <Button variant="ghost" size="sm" className="w-full mt-2">
-                View All Logs
-              </Button>
+                    {taskStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-2 flex justify-center space-x-4">
+              <div className="flex items-center">
+                <CheckCircle className="mr-1 h-4 w-4 text-green-500" />
+                <span className="text-xs">Completed</span>
+              </div>
+              <div className="flex items-center">
+                <Clock className="mr-1 h-4 w-4 text-blue-500" />
+                <span className="text-xs">In Progress</span>
+              </div>
+              <div className="flex items-center">
+                <AlertCircle className="mr-1 h-4 w-4 text-yellow-500" />
+                <span className="text-xs">Pending</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Owner Actions */}
-        {userRole === "Owner" && (
-          <Card className="border-none shadow-md">
-            <CardHeader>
-              <CardTitle>Owner Actions</CardTitle>
-              <CardDescription>Quick access to important actions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {
-                    title: "System Settings",
-                    icon: <Database className="h-5 w-5" />,
-                    href: "/dashboard/system-settings",
-                  },
-                  { title: "User Management", icon: <Users className="h-5 w-5" />, href: "/dashboard/users" },
-                  { title: "Audit Logs", icon: <FileText className="h-5 w-5" />, href: "/dashboard/audit-logs" },
-                  { title: "Salaries", icon: <DollarSign className="h-5 w-5" />, href: "/dashboard/salaries" },
-                  { title: "Analytics", icon: <BarChart className="h-5 w-5" />, href: "/dashboard/analytics" },
-                  { title: "Security", icon: <Shield className="h-5 w-5" />, href: "/dashboard/security" },
-                ].map((link, index) => (
-                  <Link href={link.href} key={index}>
-                    <Button variant="outline" className="w-full justify-start gap-2 h-auto py-3">
-                      <div className="rounded-full bg-primary/10 p-1">{link.icon}</div>
-                      <span>{link.title}</span>
-                    </Button>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader className="p-4">
+            <CardTitle>Department Size</CardTitle>
+            <CardDescription>Number of employees per department</CardDescription>
+          </CardHeader>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={departmentData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="employees" fill="#3b82f6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader className="p-4">
+            <CardTitle>Weekly Activity</CardTitle>
+            <CardDescription>Task creation over the past week</CardDescription>
+          </CardHeader>
+          <CardContent className="p-4">
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={activityData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="tasks" stroke="#8884d8" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="p-4">
+            <CardTitle>Recent Announcements</CardTitle>
+            <CardDescription>Latest company announcements</CardDescription>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              {recentAnnouncements.map((announcement: any) => (
+                <div key={announcement.id} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">{announcement.title}</h4>
+                    <span className="text-xs text-muted-foreground">{formatDate(announcement.createdAt)}</span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{announcement.content}</p>
+                </div>
+              ))}
+              <Button variant="outline" className="w-full" onClick={() => router.push("/dashboard/announcements")}>
+                View All Announcements
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

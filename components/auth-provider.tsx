@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // If user is logged in and trying to access login or register page
     if (user && (currentPath === "/login" || currentPath === "/register" || currentPath.startsWith("/register/"))) {
-      // للموظفين، إعادة التوجيه مباشرة إلى المهام
+      // للموظفين فقط، إعادة التوجيه مباشرة إلى المهام
       if (user.role === "Employee") {
         router.push("/dashboard/tasks/my-tasks")
         return
@@ -180,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // إعادة توجيه الموظفين من جذر لوحة التحكم إلى المهام
+    // إعادة توجيه الموظفين فقط من جذر لوحة التحكم إلى المهام
     if (user && user.role === "Employee" && currentPath === "/dashboard") {
       router.push("/dashboard/tasks/my-tasks")
       return
